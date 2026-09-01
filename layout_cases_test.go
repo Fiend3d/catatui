@@ -327,7 +327,7 @@ var lettersCases = []struct {
 	{"ratio", FlexLegacy, 2, []Constraint{Ratio(1, 1), Ratio(1, 2)}, "aa"},
 	{"ratio", FlexLegacy, 2, []Constraint{Ratio(1, 1), Ratio(1, 1)}, "aa"},
 	{"ratio", FlexLegacy, 3, []Constraint{Ratio(1, 3), Ratio(1, 3)}, "abb"},
-	{"ratio", FlexLegacy, 3, []Constraint{Ratio(1, 3), Ratio(2,3)}, "abb"},
+	{"ratio", FlexLegacy, 3, []Constraint{Ratio(1, 3), Ratio(2, 3)}, "abb"},
 	{"ratio", FlexLegacy, 10, []Constraint{Ratio(0, 1), Ratio(0, 1)}, "bbbbbbbbbb"},
 	{"ratio", FlexLegacy, 10, []Constraint{Ratio(0, 1), Ratio(1, 4)}, "bbbbbbbbbb"},
 	{"ratio", FlexLegacy, 10, []Constraint{Ratio(0, 1), Ratio(1, 2)}, "bbbbbbbbbb"},

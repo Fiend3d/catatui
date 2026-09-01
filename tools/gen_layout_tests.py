@@ -302,3 +302,4 @@ counts['widths'] = n
 
 io.open('layout_cases_test.go', 'w', encoding='utf-8', newline='\n').write('\n'.join(out) + '\n')
 print(' '.join('%s=%d' % kv for kv in counts.items()), 'total=%d' % sum(counts.values()))
+print('now run: gofmt -w layout_cases_test.go')
