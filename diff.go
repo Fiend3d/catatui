@@ -47,7 +47,7 @@ func newBufferDiff(prev, next *Buffer) *bufferDiff {
 		panic(fmt.Sprintf("catatui: buffer areas must have the same x, y, and width: prev=%+v, next=%+v", prev.Area, next.Area))
 	}
 	area := prev.Area
-	area.Height = minU16(area.Height, next.Area.Height)
+	area.Height = MinU16(area.Height, next.Area.Height)
 	return &bufferDiff{prev: prev.Content, next: next.Content, area: area}
 }
 
@@ -92,7 +92,7 @@ func (d *bufferDiff) nextCell() (PositionedCell, bool) {
 		}
 
 		if w, ok := current.DiffOption.ForcedWidth(); ok {
-			d.pos += int(satSub(w, 1))
+			d.pos += int(SatSub(w, 1))
 			if !current.Equal(previous) {
 				x, y := d.posOf(i)
 				return PositionedCell{X: x, Y: y, Cell: current}, true

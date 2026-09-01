@@ -180,7 +180,7 @@ func (b *TestBackend) ClearRegion(t ClearType) error {
 	case ClearCurrentLine:
 		region = NewRect(area.X, b.cursor.Y, area.Width, 1)
 	case ClearUntilNewLine:
-		region = NewRect(b.cursor.X, b.cursor.Y, satSub(area.Right(), b.cursor.X), 1)
+		region = NewRect(b.cursor.X, b.cursor.Y, SatSub(area.Right(), b.cursor.X), 1)
 	}
 	region = area.Intersection(region)
 	for y := region.Top(); y < region.Bottom(); y++ {

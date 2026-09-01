@@ -267,19 +267,19 @@ func TestRectAsPositionAsSize(t *testing.T) {
 }
 
 func TestSaturatingHelpers(t *testing.T) {
-	if got := satAdd(maxU16, 1); got != maxU16 {
-		t.Errorf("satAdd overflow = %d, want %d", got, maxU16)
+	if got := SatAdd(maxU16, 1); got != maxU16 {
+		t.Errorf("SatAdd overflow = %d, want %d", got, maxU16)
 	}
-	if got := satSub(0, 1); got != 0 {
-		t.Errorf("satSub underflow = %d, want 0", got)
+	if got := SatSub(0, 1); got != 0 {
+		t.Errorf("SatSub underflow = %d, want 0", got)
 	}
-	if got := satMul(maxU16, 2); got != maxU16 {
-		t.Errorf("satMul overflow = %d, want %d", got, maxU16)
+	if got := SatMul(maxU16, 2); got != maxU16 {
+		t.Errorf("SatMul overflow = %d, want %d", got, maxU16)
 	}
-	if got := satAdd(2, 3); got != 5 {
-		t.Errorf("satAdd(2,3) = %d, want 5", got)
+	if got := SatAdd(2, 3); got != 5 {
+		t.Errorf("SatAdd(2,3) = %d, want 5", got)
 	}
-	if got := satSub(5, 3); got != 2 {
-		t.Errorf("satSub(5,3) = %d, want 2", got)
+	if got := SatSub(5, 3); got != 2 {
+		t.Errorf("SatSub(5,3) = %d, want 2", got)
 	}
 }

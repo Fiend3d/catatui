@@ -13,6 +13,7 @@ import (
 
 	"github.com/Fiend3d/catatui"
 	"github.com/Fiend3d/catatui/term"
+	"github.com/Fiend3d/catatui/widgets"
 )
 
 type app struct {
@@ -123,13 +124,13 @@ func (a *app) draw(f *catatui.Frame) {
 		catatui.Fill(1),
 		catatui.Length(1),
 	).Split(f.Area())
-
-	buf := f.Buffer()
 	title, body, status := rows[0], rows[1], rows[2]
 
-	fill(buf, title, catatui.NewStyle().Bg(catatui.ColorBlue).Fg(catatui.ColorWhite))
-	buf.SetStringn(title.X+1, title.Y, " catatui — ratatui in Go ", title.Width,
-		catatui.NewStyle().Bg(catatui.ColorBlue).Fg(catatui.ColorWhite).AddModifier(catatui.ModifierBold))
+	f.RenderWidget(
+		widgets.NewParagraph(" catatui — ratatui in Go ").
+			Style(catatui.NewStyle().Bg(catatui.ColorBlue).Fg(catatui.ColorWhite).
+				AddModifier(catatui.ModifierBold)),
+		title)
 
 	// Split the body in two to show the layout solver doing real work.
 	cols := catatui.HorizontalLayout(
@@ -137,25 +138,26 @@ func (a *app) draw(f *catatui.Frame) {
 		catatui.Fill(1),
 	).Spacing(catatui.Space(1)).Split(body)
 
-	drawBox(buf, cols[0], "Layout")
-	lines := []string{
-		"Percentage(40) | Fill(1)",
-		"",
-		fmt.Sprintf("left:  %dx%d", cols[0].Width, cols[0].Height),
-		fmt.Sprintf("right: %dx%d", cols[1].Width, cols[1].Height),
-		"",
-		fmt.Sprintf("clicks: %d", a.clicks),
-	}
-	for i, s := range lines {
-		y := cols[0].Y + 1 + uint16(i)
-		if y >= cols[0].Bottom()-1 {
-			break
-		}
-		buf.SetStringn(cols[0].X+2, y, s, saturatingSub(cols[0].Width, 4), catatui.NewStyle())
-	}
+	f.RenderWidget(
+		widgets.NewParagraph(fmt.Sprintf(
+			"Percentage(40) | Fill(1)\n\nleft:  %dx%d\nright: %dx%d\n\nclicks: %d",
+			cols[0].Width, cols[0].Height, cols[1].Width, cols[1].Height, a.clicks)).
+			Block(widgets.Bordered().
+				Title("Layout").
+				BorderStyle(catatui.NewStyle().Fg(catatui.ColorCyan)).
+				Padding(widgets.HorizontalPadding(1))).
+			Wrap(widgets.Wrap{Trim: false}),
+		cols[0])
 
-	drawBox(buf, cols[1], "Canvas")
-	inner := cols[1].Inner(catatui.NewMargin(1, 1))
+	canvas := widgets.Bordered().
+		Title("Canvas").
+		BorderStyle(catatui.NewStyle().Fg(catatui.ColorCyan))
+	inner := canvas.Inner(cols[1])
+	f.RenderWidget(canvas, cols[1])
+
+	// The marker is drawn straight into the buffer, which is how a program with
+	// its own rendering needs uses catatui.
+	buf := f.Buffer()
 	if inner.Contains(catatui.Position{X: a.markerX, Y: a.markerY}) {
 		buf.SetString(a.markerX, a.markerY, "@",
 			catatui.NewStyle().Fg(catatui.ColorYellow).AddModifier(catatui.ModifierBold))
@@ -163,47 +165,15 @@ func (a *app) draw(f *catatui.Frame) {
 		// Keep the marker reachable after a resize shrinks the pane.
 		buf.SetString(inner.X, inner.Y, "@", catatui.NewStyle().Fg(catatui.ColorDarkGray))
 	}
-	buf.SetStringn(inner.X, inner.Bottom()-1,
-		"arrows move · click to place · q quits", inner.Width,
-		catatui.NewStyle().Fg(catatui.ColorDarkGray))
-
-	fill(buf, status, catatui.NewStyle().Bg(catatui.ColorDarkGray))
-	buf.SetStringn(status.X+1, status.Y, a.lastEvent, saturatingSub(status.Width, 2),
-		catatui.NewStyle().Bg(catatui.ColorDarkGray).Fg(catatui.ColorWhite))
-}
-
-// fill paints a solid background over an area.
-func fill(buf *catatui.Buffer, area catatui.Rect, style catatui.Style) {
-	for y := area.Top(); y < area.Bottom(); y++ {
-		for x := area.Left(); x < area.Right(); x++ {
-			buf.Get(x, y).SetSymbol(" ").SetStyle(style)
-		}
+	if inner.Height > 1 {
+		f.RenderWidget(
+			widgets.NewParagraph("arrows move · click to place · q quits").
+				Style(catatui.NewStyle().Fg(catatui.ColorDarkGray)),
+			catatui.Rect{X: inner.X, Y: inner.Bottom() - 1, Width: inner.Width, Height: 1})
 	}
-}
 
-// drawBox draws a single-line border with a title. The widget layer will make
-// this a one-liner; until then it shows what drawing straight into the buffer
-// looks like, which is how nezumi uses ratatui.
-func drawBox(buf *catatui.Buffer, area catatui.Rect, title string) {
-	if area.Width < 2 || area.Height < 2 {
-		return
-	}
-	style := catatui.NewStyle().Fg(catatui.ColorCyan)
-	right, bottom := area.Right()-1, area.Bottom()-1
-
-	for x := area.Left() + 1; x < right; x++ {
-		buf.Get(x, area.Top()).SetSymbol("─").SetStyle(style)
-		buf.Get(x, bottom).SetSymbol("─").SetStyle(style)
-	}
-	for y := area.Top() + 1; y < bottom; y++ {
-		buf.Get(area.Left(), y).SetSymbol("│").SetStyle(style)
-		buf.Get(right, y).SetSymbol("│").SetStyle(style)
-	}
-	buf.Get(area.Left(), area.Top()).SetSymbol("┌").SetStyle(style)
-	buf.Get(right, area.Top()).SetSymbol("┐").SetStyle(style)
-	buf.Get(area.Left(), bottom).SetSymbol("└").SetStyle(style)
-	buf.Get(right, bottom).SetSymbol("┘").SetStyle(style)
-
-	buf.SetStringn(area.X+2, area.Y, " "+title+" ", saturatingSub(area.Width, 4),
-		style.AddModifier(catatui.ModifierBold))
+	f.RenderWidget(
+		widgets.NewParagraph(" "+a.lastEvent).
+			Style(catatui.NewStyle().Bg(catatui.ColorDarkGray).Fg(catatui.ColorWhite)),
+		status)
 }

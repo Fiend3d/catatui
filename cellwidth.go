@@ -27,25 +27,35 @@ func cellWidth(s string) uint16 {
 	if len(s) == 1 {
 		return 1
 	}
-	return satAdd(uint16(min(uniseg.StringWidth(s), maxU16)), countHalfwidthSoundMarks(s))
+	return SatAdd(uint16(min(uniseg.StringWidth(s), maxU16)), countHalfwidthSoundMarks(s))
 }
 
 func countHalfwidthSoundMarks(s string) uint16 {
 	var n uint16
 	for _, r := range s {
 		if r == halfwidthKatakanaVoicedSoundMark || r == halfwidthKatakanaSemiVoicedSoundMark {
-			n = satAdd(n, 1)
+			n = SatAdd(n, 1)
 		}
 	}
 	return n
 }
 
-// graphemes splits s into extended grapheme clusters paired with their cell
+// Grapheme is one extended grapheme cluster together with the number of
+// terminal columns it occupies.
+type Grapheme struct {
+	Symbol string
+	Width  uint16
+}
+
+// Graphemes splits s into extended grapheme clusters paired with their cell
 // width, dropping clusters that contain a control character and clusters that
-// occupy no columns — exactly the filtering ratatui applies before writing to a
-// Buffer.
-func graphemes(s string) []grapheme {
-	out := make([]grapheme, 0, len(s))
+// occupy no columns — exactly the filtering a Buffer applies before drawing.
+//
+// Widgets that lay text out themselves should measure with this rather than
+// with any other width function, so that what they measure is what a Buffer
+// will draw.
+func Graphemes(s string) []Grapheme {
+	out := make([]Grapheme, 0, len(s))
 	g := uniseg.NewGraphemes(s)
 	for g.Next() {
 		c := g.Str()
@@ -56,14 +66,9 @@ func graphemes(s string) []grapheme {
 		if w == 0 {
 			continue
 		}
-		out = append(out, grapheme{Symbol: c, Width: w})
+		out = append(out, Grapheme{Symbol: c, Width: w})
 	}
 	return out
-}
-
-type grapheme struct {
-	Symbol string
-	Width  uint16
 }
 
 // containsControl reports whether s holds a Unicode control character. It
@@ -89,7 +94,7 @@ func isControlRune(r rune) bool {
 // four disagreeing width implementations are what made rows drift.
 func displayWidth(s string) int {
 	var w int
-	for _, g := range graphemes(s) {
+	for _, g := range Graphemes(s) {
 		w += int(g.Width)
 	}
 	return w

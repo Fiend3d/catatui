@@ -64,8 +64,8 @@ func NewRect(x, y, width, height uint16) Rect {
 	return Rect{
 		X:      x,
 		Y:      y,
-		Width:  satAdd(x, width) - x,
-		Height: satAdd(y, height) - y,
+		Width:  SatAdd(x, width) - x,
+		Height: SatAdd(y, height) - y,
 	}
 }
 
@@ -80,25 +80,25 @@ func (r Rect) IsEmpty() bool { return r.Width == 0 || r.Height == 0 }
 func (r Rect) Left() uint16 { return r.X }
 
 // Right is the first x coordinate to the right of the rect, clamped to uint16 max.
-func (r Rect) Right() uint16 { return satAdd(r.X, r.Width) }
+func (r Rect) Right() uint16 { return SatAdd(r.X, r.Width) }
 
 // Top is the y coordinate of the topmost row in the rect.
 func (r Rect) Top() uint16 { return r.Y }
 
 // Bottom is the first y coordinate below the rect, clamped to uint16 max.
-func (r Rect) Bottom() uint16 { return satAdd(r.Y, r.Height) }
+func (r Rect) Bottom() uint16 { return SatAdd(r.Y, r.Height) }
 
 // Inner returns the rect inset by the margin on each side. If the margin is
 // larger than the rect, the result is empty.
 func (r Rect) Inner(m Margin) Rect {
-	dh := satMul(m.Horizontal, 2)
-	dv := satMul(m.Vertical, 2)
+	dh := SatMul(m.Horizontal, 2)
+	dv := SatMul(m.Vertical, 2)
 	if r.Width < dh || r.Height < dv {
 		return ZeroRect
 	}
 	return Rect{
-		X:      satAdd(r.X, m.Horizontal),
-		Y:      satAdd(r.Y, m.Vertical),
+		X:      SatAdd(r.X, m.Horizontal),
+		Y:      SatAdd(r.Y, m.Vertical),
 		Width:  r.Width - dh,
 		Height: r.Height - dv,
 	}
@@ -108,13 +108,13 @@ func (r Rect) Inner(m Margin) Rect {
 // the bounds within uint16. The result may fall outside the containing area, so
 // consider Clamp before using it.
 func (r Rect) Outer(m Margin) Rect {
-	x := satSub(r.X, m.Horizontal)
-	y := satSub(r.Y, m.Vertical)
+	x := SatSub(r.X, m.Horizontal)
+	y := SatSub(r.Y, m.Vertical)
 	return Rect{
 		X:      x,
 		Y:      y,
-		Width:  satSub(satAdd(r.Right(), m.Horizontal), x),
-		Height: satSub(satAdd(r.Bottom(), m.Vertical), y),
+		Width:  SatSub(SatAdd(r.Right(), m.Horizontal), x),
+		Height: SatSub(SatAdd(r.Bottom(), m.Vertical), y),
 	}
 }
 
@@ -131,28 +131,28 @@ func (r Rect) Offset(o Offset) Rect {
 // Resize changes the size, keeping the position and clamping so that Right and
 // Bottom stay within uint16.
 func (r Rect) Resize(s Size) Rect {
-	r.Width = satSub(satAdd(r.X, s.Width), r.X)
-	r.Height = satSub(satAdd(r.Y, s.Height), r.Y)
+	r.Width = SatSub(SatAdd(r.X, s.Width), r.X)
+	r.Height = SatSub(SatAdd(r.Y, s.Height), r.Y)
 	return r
 }
 
 // Union returns the smallest rect containing both r and other.
 func (r Rect) Union(other Rect) Rect {
-	x1 := minU16(r.X, other.X)
-	y1 := minU16(r.Y, other.Y)
-	x2 := maxU16f(r.Right(), other.Right())
-	y2 := maxU16f(r.Bottom(), other.Bottom())
-	return Rect{X: x1, Y: y1, Width: satSub(x2, x1), Height: satSub(y2, y1)}
+	x1 := MinU16(r.X, other.X)
+	y1 := MinU16(r.Y, other.Y)
+	x2 := MaxU16(r.Right(), other.Right())
+	y2 := MaxU16(r.Bottom(), other.Bottom())
+	return Rect{X: x1, Y: y1, Width: SatSub(x2, x1), Height: SatSub(y2, y1)}
 }
 
 // Intersection returns the overlap of r and other, which is empty if they do
 // not overlap.
 func (r Rect) Intersection(other Rect) Rect {
-	x1 := maxU16f(r.X, other.X)
-	y1 := maxU16f(r.Y, other.Y)
-	x2 := minU16(r.Right(), other.Right())
-	y2 := minU16(r.Bottom(), other.Bottom())
-	return Rect{X: x1, Y: y1, Width: satSub(x2, x1), Height: satSub(y2, y1)}
+	x1 := MaxU16(r.X, other.X)
+	y1 := MaxU16(r.Y, other.Y)
+	x2 := MinU16(r.Right(), other.Right())
+	y2 := MinU16(r.Bottom(), other.Bottom())
+	return Rect{X: x1, Y: y1, Width: SatSub(x2, x1), Height: SatSub(y2, y1)}
 }
 
 // Intersects reports whether r and other overlap.
@@ -172,10 +172,10 @@ func (r Rect) Contains(p Position) bool {
 // This differs from Intersection: Clamp slides r to fit, preserving as much of
 // its size as it can, while Intersection keeps r's position and truncates.
 func (r Rect) Clamp(other Rect) Rect {
-	width := minU16(r.Width, other.Width)
-	height := minU16(r.Height, other.Height)
-	x := clampU16(r.X, other.X, satSub(other.Right(), width))
-	y := clampU16(r.Y, other.Y, satSub(other.Bottom(), height))
+	width := MinU16(r.Width, other.Width)
+	height := MinU16(r.Height, other.Height)
+	x := ClampU16(r.X, other.X, SatSub(other.Right(), width))
+	y := ClampU16(r.Y, other.Y, SatSub(other.Bottom(), height))
 	return NewRect(x, y, width, height)
 }
 
@@ -218,46 +218,54 @@ func (r Rect) Positions() []Position {
 //
 // Go has no saturating arithmetic, and ratatui's layout and widget code depends
 // on it pervasively, so these are the only form of uint16 arithmetic used above.
+// They are exported because anyone writing a widget needs exactly this: a
+// widget that subtracts a border width from an area must clamp at zero rather
+// than wrap to 65535.
 
 const maxU16 = 1<<16 - 1
 
-func satAdd(a, b uint16) uint16 {
+// SatAdd returns a+b, clamped at uint16 max instead of wrapping.
+func SatAdd(a, b uint16) uint16 {
 	if s := uint32(a) + uint32(b); s <= maxU16 {
 		return uint16(s)
 	}
 	return maxU16
 }
 
-func satSub(a, b uint16) uint16 {
+// SatSub returns a-b, clamped at zero instead of wrapping.
+func SatSub(a, b uint16) uint16 {
 	if a < b {
 		return 0
 	}
 	return a - b
 }
 
-func satMul(a, b uint16) uint16 {
+// SatMul returns a*b, clamped at uint16 max instead of wrapping.
+func SatMul(a, b uint16) uint16 {
 	if p := uint32(a) * uint32(b); p <= maxU16 {
 		return uint16(p)
 	}
 	return maxU16
 }
 
-func minU16(a, b uint16) uint16 {
+// MinU16 returns the smaller of a and b.
+func MinU16(a, b uint16) uint16 {
 	if a < b {
 		return a
 	}
 	return b
 }
 
-// maxU16f is the max function; the name avoids colliding with the maxU16 constant.
-func maxU16f(a, b uint16) uint16 {
+// MaxU16 returns the larger of a and b.
+func MaxU16(a, b uint16) uint16 {
 	if a > b {
 		return a
 	}
 	return b
 }
 
-func clampU16(v, lo, hi uint16) uint16 {
+// ClampU16 returns v confined to the range [lo, hi]. An empty range pins to lo.
+func ClampU16(v, lo, hi uint16) uint16 {
 	if hi < lo {
 		// The caller passed an empty range, which Rust's clamp treats as a
 		// precondition violation. Pin to lo, as the saturating math intends.

@@ -613,7 +613,7 @@ func elementsToRects(solver *kasuari.Solver, elements []element, area Rect, dire
 	for i, e := range elements {
 		start := uint16(math.Round(math.Round(solver.GetValue(e.start)) / floatPrecisionMultiplier))
 		end := uint16(math.Round(math.Round(solver.GetValue(e.end)) / floatPrecisionMultiplier))
-		size := satSub(end, start)
+		size := SatSub(end, start)
 		if direction == Horizontal {
 			rects[i] = Rect{X: start, Y: area.Y, Width: size, Height: area.Height}
 		} else {

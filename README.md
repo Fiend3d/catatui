@@ -7,6 +7,7 @@ a cell-addressed buffer, a constraint-solved layout, and a diffing terminal.
 import (
     "github.com/Fiend3d/catatui"
     "github.com/Fiend3d/catatui/term"
+    "github.com/Fiend3d/catatui/widgets"
 )
 
 terminal, restore, err := term.Init(term.WithMouse())
@@ -17,12 +18,15 @@ defer restore()
 
 terminal.Draw(func(f *catatui.Frame) {
     rows := catatui.VerticalLayout(
-        catatui.Length(1),
+        catatui.Length(3),
         catatui.Fill(1),
     ).Split(f.Area())
 
-    f.Buffer().SetString(0, rows[0].Y, "hello",
-        catatui.NewStyle().Fg(catatui.ColorYellow).AddModifier(catatui.ModifierBold))
+    f.RenderWidget(
+        widgets.NewParagraph("hello").
+            Block(widgets.Bordered().Title("catatui")).
+            Wrap(widgets.Wrap{Trim: true}),
+        rows[0])
 })
 ```
 
@@ -53,11 +57,13 @@ Working and tested:
 | Layout | `Constraint`, seven `Flex` modes, `Spacing`, `Split`, `SplitWithSpacers` |
 | Terminal | `Widget`, `StatefulWidget`, `Frame`, double-buffered `Terminal`, `Viewport` |
 | Backends | `catatui/term` (Windows + Unix), `TestBackend` |
+| Symbols | box-drawing, block, bar, braille and half-block characters |
+| Widgets | `Block` (borders, titles, padding), `Paragraph` (wrap, scroll, align) |
 
-Not yet written: the widget library (`Block`, `Paragraph`, `List`, `Table`,
-`Tabs`, `Gauge`, `Chart`, `Canvas`, …) and the `symbols` package. Until those
-land, draw into `Frame.Buffer()` directly — which is how
-[nezumi](https://github.com/Fiend3d/nezumi) uses ratatui anyway.
+Not yet written: the rest of the widget library — `List`, `Table`, `Tabs`,
+`Gauge`, `Scrollbar`, `BarChart`, `Sparkline`, `Chart` and `Canvas`. Anything
+they would do can be done by drawing into `Frame.Buffer()` directly, which is
+how [nezumi](https://github.com/Fiend3d/nezumi) uses ratatui anyway.
 
 ## Fidelity
 
@@ -70,7 +76,9 @@ expectations written from scratch:
   `python tools/gen_layout_tests.py && gofmt -w layout_cases_test.go`.
 - **kasuari's quadrilateral test**, which reproduces the Rust solver's exact
   values for a mixed system of required, weighted and inequality constraints.
-- **ratatui's buffer, style, color and rect tests**, ported by hand.
+- **ratatui's buffer, style, color, rect, block and paragraph tests**, ported by
+  hand — including the word-wrap cases, which pin down whitespace handling at
+  wrap points.
 - **ratatui's `cell_width` cases**, which double as a conformance check that Go's
   `uniseg` agrees with Rust's `unicode-width`.
 

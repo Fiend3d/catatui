@@ -144,12 +144,12 @@ func NewTerminalWithViewport(backend Backend, viewport Viewport) (*Terminal, err
 // inlineArea works out where an inline viewport of the given height sits,
 // scrolling the terminal up to make room if the cursor is too near the bottom.
 func inlineArea(backend Backend, height uint16, size Size, cursor Position) Rect {
-	height = minU16(height, size.Height)
+	height = MinU16(height, size.Height)
 	top := cursor.Y
 	// If there is not enough room below the cursor, push the existing lines up.
-	if overflow := satSub(satAdd(top, height), size.Height); overflow > 0 {
+	if overflow := SatSub(SatAdd(top, height), size.Height); overflow > 0 {
 		_ = backend.AppendLines(overflow)
-		top = satSub(top, overflow)
+		top = SatSub(top, overflow)
 	}
 	return Rect{X: 0, Y: top, Width: size.Width, Height: height}
 }
@@ -264,9 +264,9 @@ func (t *Terminal) Resize(area Rect) error {
 		if err != nil {
 			return err
 		}
-		offset := satSub(t.lastCursor.Y, t.viewportArea.Top())
+		offset := SatSub(t.lastCursor.Y, t.viewportArea.Top())
 		next = inlineArea(t.backend, t.viewport.height, size, Position{Y: t.lastCursor.Y})
-		pos := Position{X: 0, Y: satAdd(next.Y, offset)}
+		pos := Position{X: 0, Y: SatAdd(next.Y, offset)}
 		restoreCursor = &pos
 	}
 
@@ -387,7 +387,7 @@ func (t *Terminal) InsertBefore(height uint16, draw func(*Buffer)) error {
 	if err := t.backend.AppendLines(height); err != nil {
 		return err
 	}
-	area := Rect{X: t.viewportArea.X, Y: satSub(t.viewportArea.Y, height),
+	area := Rect{X: t.viewportArea.X, Y: SatSub(t.viewportArea.Y, height),
 		Width: t.viewportArea.Width, Height: height}
 	buf := NewBuffer(area)
 	draw(buf)

@@ -74,7 +74,7 @@ func TestStringWidth(t *testing.T) {
 
 func TestGraphemesFiltersControlAndZeroWidth(t *testing.T) {
 	// Control characters are dropped entirely rather than drawn.
-	got := graphemes("a\tb\nc")
+	got := Graphemes("a\tb\nc")
 	want := []string{"a", "b", "c"}
 	if len(got) != len(want) {
 		t.Fatalf("graphemes dropped control chars incorrectly: got %d clusters %+v, want %d", len(got), got, len(want))
@@ -86,7 +86,7 @@ func TestGraphemesFiltersControlAndZeroWidth(t *testing.T) {
 	}
 
 	// A base character and its combining mark stay in one cluster of width 1.
-	got = graphemes("é")
+	got = Graphemes("é")
 	if len(got) != 1 {
 		t.Fatalf("combining mark should stay in one cluster, got %+v", got)
 	}

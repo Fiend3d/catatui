@@ -133,8 +133,8 @@ func (b *Buffer) SetString(x, y uint16, s string, style Style) (nextX, nextY uin
 //   - The continuation columns of a wide cluster are reset to blank cells, not
 //     to the style being drawn.
 func (b *Buffer) SetStringn(x, y uint16, s string, maxWidth uint16, style Style) (nextX, nextY uint16) {
-	remaining := minU16(satSub(b.Area.Right(), x), maxWidth)
-	for _, g := range graphemes(s) {
+	remaining := MinU16(SatSub(b.Area.Right(), x), maxWidth)
+	for _, g := range Graphemes(s) {
 		// A cluster that does not fit ends the draw entirely, rather than
 		// being truncated into a partial glyph.
 		if g.Width > remaining {
@@ -176,7 +176,7 @@ func (b *Buffer) SetLine(x, y uint16, line Line, maxWidth uint16) (nextX, nextY 
 			break
 		}
 		nx, _ := b.SetStringn(x, y, span.content, remaining, line.style.Patch(span.style))
-		remaining = satSub(remaining, nx-x)
+		remaining = SatSub(remaining, nx-x)
 		x = nx
 	}
 	return x, y
