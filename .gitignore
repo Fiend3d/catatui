@@ -1,0 +1,8 @@
+# Read-only ratatui reference checkout used for porting. Not part of the module.
+/_ref/
+
+# Go
+*.exe
+*.test
+*.out
+/dist/
