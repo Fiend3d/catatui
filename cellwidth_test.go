@@ -54,7 +54,7 @@ func TestCellWidth(t *testing.T) {
 func TestStringWidth(t *testing.T) {
 	cases := []struct {
 		in   string
-		want uint16
+		want int
 	}{
 		{"a", 1},
 		{"あ", 2},
@@ -64,10 +64,15 @@ func TestStringWidth(t *testing.T) {
 		{"あｶﾞ", 4},  // あ(2) + ｶﾞ(2)
 		{"hello", 5},
 		{"", 0},
+		// Control characters and zero-width clusters are never drawn, so they
+		// occupy nothing.
+		{"a\tb", 2},
+		{"a\nb", 2},
+		{"a​b", 2},
 	}
 	for _, c := range cases {
-		if got := stringWidth(c.in); got != c.want {
-			t.Errorf("stringWidth(%q) = %d, want %d", c.in, got, c.want)
+		if got := StringWidth(c.in); got != c.want {
+			t.Errorf("StringWidth(%q) = %d, want %d", c.in, got, c.want)
 		}
 	}
 }
@@ -104,6 +109,53 @@ func TestIsControlRune(t *testing.T) {
 	for _, r := range []rune{' ', 'a', 0xA0, 'あ'} {
 		if isControlRune(r) {
 			t.Errorf("U+%04X should not be a control character", r)
+		}
+	}
+}
+
+// TestStringWidthMatchesWhatIsDrawn is the contract that makes StringWidth
+// usable for laying text out by hand: what it measures must be exactly what a
+// Buffer puts on screen.
+//
+// Measuring with one function and drawing with another is what makes rows drift
+// out of alignment, so this walks a spread of awkward strings and checks that
+// the measured width equals the number of columns SetString actually fills.
+func TestStringWidthMatchesWhatIsDrawn(t *testing.T) {
+	inputs := []string{
+		"",
+		"hello",
+		"あ",
+		"日本語のテキスト",
+		"ｶﾞ",           // halfwidth katakana plus a non-combining sound mark
+		"ガ",            // fullwidth katakana with a combining mark
+		"é",            // base plus combining acute
+		"a​b",          // zero-width space in the middle
+		"a\tb",         // control character, which is not drawn
+		"mixed あ text", // narrow and wide together
+	}
+	for _, in := range inputs {
+		want := StringWidth(in)
+
+		// Draw into a buffer wide enough for anything, then find how far the
+		// draw actually reached.
+		buf := NewBuffer(NewRect(0, 0, 64, 1))
+		nextX, _ := buf.SetString(0, 0, in, NewStyle())
+
+		if got := int(nextX); got != want {
+			t.Errorf("StringWidth(%q) = %d, but SetString filled %d columns", in, want, got)
+		}
+	}
+}
+
+// TestStringWidthAgreesWithSpanWidth guards against the two drifting apart, the
+// way ratatui's Span::width and cell_width have.
+func TestStringWidthAgreesWithSpanWidth(t *testing.T) {
+	for _, in := range []string{"", "abc", "あい", "ｶﾞｻﾞ", "a​b", "é"} {
+		if got, want := NewSpan(in).Width(), StringWidth(in); got != want {
+			t.Errorf("Span(%q).Width() = %d but StringWidth = %d", in, got, want)
+		}
+		if got, want := LineFromString(in).Width(), StringWidth(in); got != want {
+			t.Errorf("Line(%q).Width() = %d but StringWidth = %d", in, got, want)
 		}
 	}
 }

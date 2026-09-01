@@ -14,13 +14,15 @@ import (
 type Option func(*config)
 
 type config struct {
-	in, out    *os.File
-	altScreen  bool
-	mouse      bool
-	paste      bool
-	focus      bool
-	viewport   catatui.Viewport
-	hasVieport bool
+	in, out     *os.File
+	altScreen   bool
+	mouse       bool
+	paste       bool
+	focus       bool
+	cursorShape CursorShape
+	hasShape    bool
+	viewport    catatui.Viewport
+	hasVieport  bool
 }
 
 // WithMouse enables mouse reporting, so that EventMouse events arrive.
@@ -36,6 +38,15 @@ func WithFocusReporting() Option { return func(c *config) { c.focus = true } }
 // WithoutAlternateScreen keeps the application on the main screen, so that what
 // it draws stays in the scrollback after it exits.
 func WithoutAlternateScreen() Option { return func(c *config) { c.altScreen = false } }
+
+// WithCursorShape sets how the terminal draws the cursor for the life of the
+// program. The restore function puts it back.
+//
+// To change the shape while running — a text field switching to a bar while it
+// has focus, say — use BackendOf and Backend.SetCursorShape instead.
+func WithCursorShape(s CursorShape) Option {
+	return func(c *config) { c.cursorShape, c.hasShape = s, true }
+}
 
 // WithViewport draws into the given viewport rather than the whole terminal.
 func WithViewport(v catatui.Viewport) Option {
@@ -85,6 +96,9 @@ func Init(opts ...Option) (*catatui.Terminal, func(), error) {
 	if cfg.focus {
 		backend.w.esc(seqFocusOn)
 	}
+	if cfg.hasShape {
+		backend.w.setCursorShape(cfg.cursorShape)
+	}
 	backend.w.invalidateCursor()
 	if err := backend.Flush(); err != nil {
 		_ = exitRawMode(state)
@@ -94,6 +108,12 @@ func Init(opts ...Option) (*catatui.Terminal, func(), error) {
 	var restoreOnce sync.Once
 	restore := func() {
 		restoreOnce.Do(func() {
+			// The cursor shape is always reset, not just when this program set
+			// it: a program that changed it while running through
+			// Backend.SetCursorShape would otherwise leave the user's shell
+			// with the wrong cursor, and there is no way to query what the
+			// shape was before.
+			backend.w.setCursorShape(CursorDefault)
 			if cfg.focus {
 				backend.w.esc(seqFocusOff)
 			}

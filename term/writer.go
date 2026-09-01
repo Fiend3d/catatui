@@ -189,6 +189,67 @@ func (w *writer) writeUnderlineColor(c catatui.Color) {
 	}
 }
 
+// CursorShape is how the terminal draws the cursor.
+//
+// Setting it is DECSCUSR, which most modern terminals support — Windows
+// Terminal, xterm, kitty, alacritty, iTerm2 — and which the rest ignore
+// harmlessly. There is no way to query the current shape, so a program that
+// changes it should set it back; Init's restore function does that for you.
+type CursorShape uint8
+
+const (
+	// CursorDefault restores the shape the user configured in their terminal.
+	CursorDefault CursorShape = iota
+	// CursorBlinkingBlock is a blinking filled rectangle.
+	CursorBlinkingBlock
+	// CursorSteadyBlock is a filled rectangle that does not blink.
+	CursorSteadyBlock
+	// CursorBlinkingUnderline is a blinking underscore.
+	CursorBlinkingUnderline
+	// CursorSteadyUnderline is an underscore that does not blink.
+	CursorSteadyUnderline
+	// CursorBlinkingBar is a blinking vertical bar.
+	CursorBlinkingBar
+	// CursorSteadyBar is a vertical bar that does not blink.
+	CursorSteadyBar
+)
+
+// String returns the shape's name.
+func (s CursorShape) String() string {
+	switch s {
+	case CursorBlinkingBlock:
+		return "BlinkingBlock"
+	case CursorSteadyBlock:
+		return "SteadyBlock"
+	case CursorBlinkingUnderline:
+		return "BlinkingUnderline"
+	case CursorSteadyUnderline:
+		return "SteadyUnderline"
+	case CursorBlinkingBar:
+		return "BlinkingBar"
+	case CursorSteadyBar:
+		return "SteadyBar"
+	default:
+		return "Default"
+	}
+}
+
+// decscusr is the DECSCUSR parameter for a shape. The numbering is the
+// standard's: 0 resets to the terminal's default, then the shapes run in
+// blinking/steady pairs.
+func (s CursorShape) decscusr() int {
+	if s > CursorSteadyBar {
+		return 0
+	}
+	return int(s)
+}
+
+// setCursorShape emits DECSCUSR. It does not move the cursor, so the writer's
+// idea of the cursor position stays valid.
+func (w *writer) setCursorShape(s CursorShape) {
+	w.csi(strconv.Itoa(s.decscusr()) + " q")
+}
+
 // Terminal mode sequences. These are the private DEC modes catatui toggles.
 const (
 	seqAltScreenOn  = "[?1049h"

@@ -57,6 +57,7 @@ Working and tested:
 | Layout | `Constraint`, seven `Flex` modes, `Spacing`, `Split`, `SplitWithSpacers` |
 | Terminal | `Widget`, `StatefulWidget`, `Frame`, double-buffered `Terminal`, `Viewport` |
 | Backends | `catatui/term` (Windows + Unix), `TestBackend` |
+| Terminal control | raw mode, alt screen, mouse, bracketed paste, focus, cursor shape |
 | Symbols | box-drawing, block, bar, braille and half-block characters |
 | Widgets | `Block` (borders, titles, padding), `Paragraph` (wrap, scroll, align) |
 
@@ -87,9 +88,10 @@ The rules that matter most, and that the tests pin down:
 - A grapheme cluster wider than the space left is **dropped, not clipped**, and
   drawing stops there. The continuation columns of a wide cluster are **blanked,
   not styled**.
-- There is exactly **one width function** in the tree. Disagreeing width
-  implementations are what made rows drift in the Go program that ratatui's
-  author replaced.
+- There is exactly **one width function** in the tree, exported as
+  `catatui.StringWidth`, and a test asserts that what it measures is exactly the
+  number of columns `SetString` fills. Disagreeing width implementations are what
+  made rows drift in the Go program that ratatui's author replaced.
 - Coordinates are `uint16` with saturating arithmetic, as in ratatui.
 
 ## Deliberate deviations from ratatui

@@ -230,3 +230,84 @@ func TestBackendNonTerminalWriterFallsBackToADefaultSize(t *testing.T) {
 		t.Errorf("fallback size = %+v, want something usable", size)
 	}
 }
+
+func TestBackendCursorShape(t *testing.T) {
+	cases := []struct {
+		shape CursorShape
+		want  string
+	}{
+		{CursorDefault, "\x1b[0 q"},
+		{CursorBlinkingBlock, "\x1b[1 q"},
+		{CursorSteadyBlock, "\x1b[2 q"},
+		{CursorBlinkingUnderline, "\x1b[3 q"},
+		{CursorSteadyUnderline, "\x1b[4 q"},
+		{CursorBlinkingBar, "\x1b[5 q"},
+		{CursorSteadyBar, "\x1b[6 q"},
+	}
+	for _, c := range cases {
+		var out bytes.Buffer
+		b := NewBackend(&out)
+		if err := b.SetCursorShape(c.shape); err != nil {
+			t.Fatalf("SetCursorShape(%v): %v", c.shape, err)
+		}
+		_ = b.Flush()
+		if got := out.String(); got != c.want {
+			t.Errorf("SetCursorShape(%v) = %q, want %q", c.shape, got, c.want)
+		}
+	}
+}
+
+// TestBackendCursorShapeDoesNotMoveTheCursor checks that changing the shape does
+// not invalidate the writer's idea of where the cursor is; if it did, every
+// shape change would cost a redundant cursor move on the next cell.
+func TestBackendCursorShapeDoesNotMoveTheCursor(t *testing.T) {
+	var out bytes.Buffer
+	b := NewBackend(&out)
+	_ = b.Draw([]catatui.PositionedCell{{X: 0, Y: 0, Cell: catatui.NewCell("a")}})
+	_ = b.SetCursorShape(CursorSteadyBar)
+	_ = b.Draw([]catatui.PositionedCell{{X: 1, Y: 0, Cell: catatui.NewCell("b")}})
+	_ = b.Flush()
+
+	if n := strings.Count(out.String(), "H"); n != 1 {
+		t.Errorf("a shape change between adjacent cells caused %d cursor moves, want 1: %q", n, out.String())
+	}
+}
+
+func TestCursorShapeString(t *testing.T) {
+	cases := []struct {
+		shape CursorShape
+		want  string
+	}{
+		{CursorDefault, "Default"},
+		{CursorSteadyBlock, "SteadyBlock"},
+		{CursorBlinkingBar, "BlinkingBar"},
+		{CursorShape(99), "Default"},
+	}
+	for _, c := range cases {
+		if got := c.shape.String(); got != c.want {
+			t.Errorf("CursorShape(%d).String() = %q, want %q", c.shape, got, c.want)
+		}
+	}
+}
+
+// TestBackendOf checks the escape hatch that lets a program reach the
+// terminal-specific parts of the backend through a catatui.Terminal.
+func TestBackendOf(t *testing.T) {
+	backend := NewBackend(&bytes.Buffer{})
+	terminal, err := catatui.NewTerminal(backend)
+	if err != nil {
+		t.Fatalf("NewTerminal: %v", err)
+	}
+	if got := BackendOf(terminal); got != backend {
+		t.Errorf("BackendOf returned %p, want the backend %p", got, backend)
+	}
+
+	// A terminal on some other backend must report nil rather than panicking.
+	other, err := catatui.NewTerminal(catatui.NewTestBackend(4, 2))
+	if err != nil {
+		t.Fatalf("NewTerminal: %v", err)
+	}
+	if got := BackendOf(other); got != nil {
+		t.Errorf("BackendOf on a TestBackend returned %v, want nil", got)
+	}
+}

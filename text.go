@@ -82,7 +82,7 @@ func (s Span) GetContent() string { return s.content }
 func (s Span) GetStyle() Style { return s.style }
 
 // Width is the number of columns the span occupies when drawn.
-func (s Span) Width() int { return displayWidth(s.content) }
+func (s Span) Width() int { return StringWidth(s.content) }
 
 // String returns the span's text, so a Span prints as its content.
 func (s Span) String() string { return s.content }

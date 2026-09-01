@@ -82,17 +82,23 @@ func isControlRune(r rune) bool {
 	return r < 0x20 || (r >= 0x7F && r <= 0x9F)
 }
 
-// displayWidth is the total number of columns s occupies when drawn, counting
-// each grapheme cluster once and skipping the clusters a Buffer would not draw.
+// StringWidth is the number of terminal columns s occupies when drawn.
 //
-// Deviation from ratatui: Span::width, Line::width and Text::width call
-// unicode-width directly, while Buffer::set_stringn measures with cell_width.
-// The two disagree on halfwidth katakana sound marks, control characters and
-// some emoji sequences, so in ratatui a Line can report a width it does not
-// actually draw. catatui measures everything with this one function instead.
-// Keeping a single notion of width is the whole point of the rule; koneko's
-// four disagreeing width implementations are what made rows drift.
-func displayWidth(s string) int {
+// It counts each grapheme cluster once and skips the clusters a Buffer would
+// not draw — control characters and zero-width clusters — so what it measures
+// is exactly what SetString would put on screen. Use it for anything that has
+// to reason about width outside a Buffer: sizing a status bar, deciding how
+// much of a label fits, laying out a widget by hand.
+//
+// This is the library's only notion of width, deliberately. ratatui has two:
+// Span::width, Line::width and Text::width call unicode-width directly, while
+// Buffer::set_stringn measures with cell_width, and the two disagree on
+// halfwidth katakana sound marks, control characters and some emoji sequences.
+// A Line can therefore report a width it does not draw. Keeping one function
+// is the whole point of the rule; several disagreeing width implementations
+// are what made rows drift out of alignment in the program that prompted this
+// port.
+func StringWidth(s string) int {
 	var w int
 	for _, g := range Graphemes(s) {
 		w += int(g.Width)
@@ -100,7 +106,7 @@ func displayWidth(s string) int {
 	return w
 }
 
-// stringWidth is displayWidth saturated into a uint16, for the coordinate math.
+// stringWidth is StringWidth saturated into a uint16, for the coordinate math.
 func stringWidth(s string) uint16 {
-	return uint16(min(displayWidth(s), maxU16))
+	return uint16(min(StringWidth(s), maxU16))
 }

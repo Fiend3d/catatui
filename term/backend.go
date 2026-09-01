@@ -88,6 +88,32 @@ func (b *Backend) SetCursorPosition(p catatui.Position) error {
 	return nil
 }
 
+// SetCursorShape changes how the terminal draws the cursor.
+//
+// This is beyond catatui.Backend, which mirrors ratatui's backend trait and has
+// no notion of cursor shape, so reach it through the concrete backend:
+//
+//	if b := term.BackendOf(terminal); b != nil {
+//		b.SetCursorShape(term.CursorSteadyBar)
+//	}
+//
+// The change takes effect on the next Flush, which Terminal.Draw does at the
+// end of every frame.
+func (b *Backend) SetCursorShape(s CursorShape) error {
+	b.w.setCursorShape(s)
+	return nil
+}
+
+// BackendOf returns the term.Backend driving a Terminal, or nil if the terminal
+// is driven by some other backend such as catatui.TestBackend.
+//
+// It exists so that a program can reach the terminal-specific parts — cursor
+// shape today — without type-asserting by hand at every call site.
+func BackendOf(t *catatui.Terminal) *Backend {
+	b, _ := t.Backend().(*Backend)
+	return b
+}
+
 // Clear erases the whole screen.
 func (b *Backend) Clear() error { return b.ClearRegion(catatui.ClearAll) }
 
