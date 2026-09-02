@@ -11,7 +11,7 @@ import (
 // printBuffer writes a buffer one row per line, with the padding on the right
 // trimmed so that the expected output of an example stays readable.
 func printBuffer(buf *catatui.Buffer) {
-	for _, row := range strings.Split(buf.String(), "\n") {
+	for row := range strings.SplitSeq(buf.String(), "\n") {
 		fmt.Println(strings.TrimRight(row, " "))
 	}
 }

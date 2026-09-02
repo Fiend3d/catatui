@@ -39,12 +39,25 @@ BLOCK = re.compile(r"^```go\n(.*?)^```", re.MULTILINE | re.DOTALL)
 
 GO_MOD = """module docsnippets
 
-go 1.24
+go {go_version}
 
 require github.com/Fiend3d/catatui v0.0.0
 
 replace github.com/Fiend3d/catatui => {repo}
 """
+
+
+def go_version():
+    """The go directive from the repo's go.mod.
+
+    The throwaway module has to ask for at least what catatui asks for, or the
+    go command refuses to build against it.
+    """
+    with open(os.path.join(REPO, "go.mod"), encoding="utf-8") as f:
+        for line in f:
+            if line.startswith("go "):
+                return line.split()[1]
+    raise SystemExit("no go directive in go.mod")
 
 
 def snippets(page):
@@ -92,7 +105,7 @@ def main(argv):
     fragments = 0
     try:
         open(os.path.join(work, "go.mod"), "w", encoding="utf-8").write(
-            GO_MOD.format(repo=REPO.replace("\\", "/"))
+            GO_MOD.format(repo=REPO.replace("\\", "/"), go_version=go_version())
         )
         shutil.copyfile(os.path.join(REPO, "go.sum"), os.path.join(work, "go.sum"))
         resolve_dependencies(work)
