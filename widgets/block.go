@@ -134,6 +134,8 @@ type Block struct {
 	borderSetIsSet  bool
 	style           catatui.Style
 	padding         Padding
+	shadow          Shadow
+	hasShadow       bool
 }
 
 // NewBlock returns a block with no borders and no titles.
@@ -207,6 +209,17 @@ func (b Block) Style(s catatui.Style) Block { b.style = s; return b }
 // Padding returns a copy of b with space reserved inside the border.
 func (b Block) Padding(p Padding) Block { b.padding = p; return b }
 
+// Shadow returns a copy of b with a shadow drawn behind it.
+//
+// The shadow is rendered using the block area plus the shadow's configured
+// offset.
+//
+//	block := widgets.Bordered().Title("Popup").Shadow(
+//		widgets.ShadowDarkShade().
+//			Style(catatui.NewStyle().Fg(catatui.ColorBlack).Bg(catatui.ColorWhite)).
+//			Offset(catatui.Offset{X: 2, Y: 1}))
+func (b Block) Shadow(s Shadow) Block { b.shadow, b.hasShadow = s, true; return b }
+
 func (b Block) set() symbols.BorderSet {
 	if b.borderSetIsSet {
 		return b.borderSet
@@ -267,6 +280,7 @@ func (b Block) Render(area catatui.Rect, buf *catatui.Buffer) {
 	buf.SetStyle(area, b.style)
 	b.renderBorders(area, buf)
 	b.renderTitles(area, buf)
+	b.renderShadow(area, buf)
 }
 
 func (b Block) renderBorders(area catatui.Rect, buf *catatui.Buffer) {
@@ -466,6 +480,12 @@ func (b Block) renderCenteredTitlesTruncated(titles []catatui.Line, total uint16
 		advance := catatui.SatAdd(width, 1)
 		area.X = catatui.SatAdd(area.X, advance)
 		area.Width = catatui.SatSub(area.Width, advance)
+	}
+}
+
+func (b Block) renderShadow(baseArea catatui.Rect, buf *catatui.Buffer) {
+	if b.hasShadow {
+		b.shadow.Render(baseArea, buf)
 	}
 }
 
