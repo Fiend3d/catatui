@@ -161,6 +161,7 @@ without the check failing.
 ## Dependencies
 
 `github.com/rivo/uniseg`, `golang.org/x/sys`, `golang.org/x/term`. That is all.
+uniseg is MIT; the two `golang.org/x` modules are BSD-3-Clause.
 
 ## Examples
 
@@ -193,3 +194,17 @@ ported. It is gitignored; recreate it with:
 git clone --depth 1 --branch ratatui-v0.30.2 https://github.com/ratatui/ratatui.git _ref/ratatui
 git clone --depth 1 --branch v0.4.11 https://github.com/ratatui/kasuari.git _ref/kasuari
 ```
+
+## License
+
+MIT. See [LICENSE](LICENSE).
+
+catatui is a port, so that file also carries the copyright notices of the work
+it derives from: [ratatui], which nearly every file here is ported from, and
+[kasuari], the Cassowary solver behind `internal/kasuari`. Both are MIT
+(kasuari is MIT or Apache-2.0, used here under MIT), and MIT requires their
+notices to travel with the code.
+
+[ratatui]: https://github.com/ratatui/ratatui
+[kasuari]: https://github.com/ratatui/kasuari
+
