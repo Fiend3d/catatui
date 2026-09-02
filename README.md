@@ -160,13 +160,14 @@ without the check failing.
 ## Examples
 
 `examples/` holds one runnable program per widget, ported from ratatui's own
-widget examples, plus `hello`, which shows the layout solver, direct buffer
-drawing and an event loop that blocks when idle:
+widget examples, alongside ported applications — the original tui-rs `demo` and
+the `flex` layout explorer — and `hello`, which shows the layout solver, direct
+buffer drawing and an event loop that blocks when idle:
 
 ```sh
+go run ./examples/demo
+go run ./examples/flex
 go run ./examples/hello
-go run ./examples/chart
-go run ./examples/collapsed-borders
 ```
 
 See [examples/README.md](examples/README.md) for the full list and the keys

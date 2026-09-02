@@ -44,16 +44,46 @@ func (d Direction) String() string {
 
 // --- Constraint -----------------------------------------------------------
 
-type constraintKind uint8
+// ConstraintKind is which of ratatui's Constraint variants a Constraint is.
+//
+// Rust makes Constraint an enum, so code that has to treat each kind
+// differently — colouring them, say, or reporting a layout — matches on it. Go
+// has no enums with payloads, so Constraint is an opaque value and Kind is how
+// that code asks.
+type ConstraintKind uint8
 
 const (
-	constraintMin constraintKind = iota
-	constraintMax
-	constraintLength
-	constraintPercentage
-	constraintRatio
-	constraintFill
+	// ConstraintMin is Min(n), and the zero value.
+	ConstraintMin ConstraintKind = iota
+	// ConstraintMax is Max(n).
+	ConstraintMax
+	// ConstraintLength is Length(n).
+	ConstraintLength
+	// ConstraintPercentage is Percentage(p).
+	ConstraintPercentage
+	// ConstraintRatio is Ratio(num, den).
+	ConstraintRatio
+	// ConstraintFill is Fill(scale).
+	ConstraintFill
 )
+
+// String returns the kind's name, which is the constructor's name.
+func (k ConstraintKind) String() string {
+	switch k {
+	case ConstraintMax:
+		return "Max"
+	case ConstraintLength:
+		return "Length"
+	case ConstraintPercentage:
+		return "Percentage"
+	case ConstraintRatio:
+		return "Ratio"
+	case ConstraintFill:
+		return "Fill"
+	default:
+		return "Min"
+	}
+}
 
 // Constraint describes how much of an area one segment of a Layout should take.
 //
@@ -64,55 +94,63 @@ const (
 // The zero value is Min(0), matching the first variant of ratatui's enum, but
 // build them with the constructors rather than relying on that.
 type Constraint struct {
-	kind constraintKind
+	kind ConstraintKind
 	a    uint32
 	b    uint32
 }
 
 // Min requests at least n cells. It has the highest priority alongside Max, and
 // grows to fill leftover space.
-func Min(n uint16) Constraint { return Constraint{kind: constraintMin, a: uint32(n)} }
+func Min(n uint16) Constraint { return Constraint{kind: ConstraintMin, a: uint32(n)} }
 
 // Max requests at most n cells.
-func Max(n uint16) Constraint { return Constraint{kind: constraintMax, a: uint32(n)} }
+func Max(n uint16) Constraint { return Constraint{kind: ConstraintMax, a: uint32(n)} }
 
 // Length requests exactly n cells.
-func Length(n uint16) Constraint { return Constraint{kind: constraintLength, a: uint32(n)} }
+func Length(n uint16) Constraint { return Constraint{kind: ConstraintLength, a: uint32(n)} }
 
 // Percentage requests p percent of the available space, rounded to the nearest
 // cell.
-func Percentage(p uint16) Constraint { return Constraint{kind: constraintPercentage, a: uint32(p)} }
+func Percentage(p uint16) Constraint { return Constraint{kind: ConstraintPercentage, a: uint32(p)} }
 
 // Ratio requests num/den of the available space. A zero denominator is treated
 // as one.
 func Ratio(num, den uint32) Constraint {
-	return Constraint{kind: constraintRatio, a: num, b: den}
+	return Constraint{kind: ConstraintRatio, a: num, b: den}
 }
 
 // Fill requests whatever space is left, shared with the other Fill constraints
 // in proportion to their scaling factors. It has the lowest priority.
-func Fill(scale uint16) Constraint { return Constraint{kind: constraintFill, a: uint32(scale)} }
+func Fill(scale uint16) Constraint { return Constraint{kind: ConstraintFill, a: uint32(scale)} }
 
 // String formats the constraint the way ratatui's Display impl does.
 func (c Constraint) String() string {
 	switch c.kind {
-	case constraintMin:
+	case ConstraintMin:
 		return fmt.Sprintf("Min(%d)", c.a)
-	case constraintMax:
+	case ConstraintMax:
 		return fmt.Sprintf("Max(%d)", c.a)
-	case constraintLength:
+	case ConstraintLength:
 		return fmt.Sprintf("Length(%d)", c.a)
-	case constraintPercentage:
+	case ConstraintPercentage:
 		return fmt.Sprintf("Percentage(%d)", c.a)
-	case constraintRatio:
+	case ConstraintRatio:
 		return fmt.Sprintf("Ratio(%d, %d)", c.a, c.b)
 	default:
 		return fmt.Sprintf("Fill(%d)", c.a)
 	}
 }
 
-func (c Constraint) isFill() bool { return c.kind == constraintFill }
-func (c Constraint) isMin() bool  { return c.kind == constraintMin }
+// Kind returns which kind of constraint this is.
+//
+//	switch constraint.Kind() {
+//	case catatui.ConstraintMin:
+//		...
+//	}
+func (c Constraint) Kind() ConstraintKind { return c.kind }
+
+func (c Constraint) isFill() bool { return c.kind == ConstraintFill }
+func (c Constraint) isMin() bool  { return c.kind == ConstraintMin }
 
 // --- Flex -----------------------------------------------------------------
 
@@ -440,27 +478,27 @@ func (l Layout) configureConstraints(solver *kasuari.Solver, mustAdd func(error)
 		}
 		seg := segments[i]
 		switch c.kind {
-		case constraintMax:
+		case ConstraintMax:
 			mustAdd(solver.AddConstraint(seg.hasMaxSize(uint16(c.a), maxSizeLE)))
 			mustAdd(solver.AddConstraint(seg.hasIntSize(uint16(c.a), maxSizeEq)))
-		case constraintMin:
+		case ConstraintMin:
 			mustAdd(solver.AddConstraint(seg.hasMinSize(int16(c.a), minSizeGE)))
 			if l.flex.isLegacy() {
 				mustAdd(solver.AddConstraint(seg.hasIntSize(uint16(c.a), minSizeEq)))
 			} else {
 				mustAdd(solver.AddConstraint(seg.hasSize(area.size(), fillGrow)))
 			}
-		case constraintLength:
+		case ConstraintLength:
 			mustAdd(solver.AddConstraint(seg.hasIntSize(uint16(c.a), lengthSizeEq)))
-		case constraintPercentage:
+		case ConstraintPercentage:
 			size := area.size().Mul(float64(c.a)).Div(100)
 			mustAdd(solver.AddConstraint(seg.hasSize(size, percentageSizeEq)))
-		case constraintRatio:
+		case ConstraintRatio:
 			// A zero denominator would divide by zero; ratatui treats it as one.
 			den := max(c.b, 1)
 			size := area.size().Mul(float64(c.a)).Div(float64(den))
 			mustAdd(solver.AddConstraint(seg.hasSize(size, ratioSizeEq)))
-		case constraintFill:
+		case ConstraintFill:
 			// With nothing else to hold it back, this grows as far as it can.
 			mustAdd(solver.AddConstraint(seg.hasSize(area.size(), fillGrow)))
 		}

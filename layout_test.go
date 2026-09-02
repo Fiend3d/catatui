@@ -271,3 +271,28 @@ func TestLayoutNoConstraints(t *testing.T) {
 		t.Errorf("a layout with no constraints should split into nothing, got %v", got)
 	}
 }
+
+func TestConstraintKind(t *testing.T) {
+	cases := []struct {
+		constraint Constraint
+		kind       ConstraintKind
+		name       string
+	}{
+		{Min(10), ConstraintMin, "Min"},
+		{Max(10), ConstraintMax, "Max"},
+		{Length(10), ConstraintLength, "Length"},
+		{Percentage(10), ConstraintPercentage, "Percentage"},
+		{Ratio(1, 10), ConstraintRatio, "Ratio"},
+		{Fill(1), ConstraintFill, "Fill"},
+		// The zero value is Min(0), matching the first variant of ratatui's enum.
+		{Constraint{}, ConstraintMin, "Min"},
+	}
+	for _, c := range cases {
+		if got := c.constraint.Kind(); got != c.kind {
+			t.Errorf("%s.Kind() = %v, want %v", c.constraint, got, c.kind)
+		}
+		if got := c.constraint.Kind().String(); got != c.name {
+			t.Errorf("%s.Kind().String() = %q, want %q", c.constraint, got, c.name)
+		}
+	}
+}
