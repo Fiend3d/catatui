@@ -122,6 +122,27 @@ func (w *writer) setStyle(fg, bg, underline catatui.Color, mod catatui.Modifier)
 	w.styleKnown = true
 }
 
+// resetStyle puts the terminal back to its default attributes and records
+// that, so the next cell re-emits whatever style it needs.
+//
+// This is not only tidiness. Erasing and scrolling fill the cells they touch
+// with the background colour that is currently in effect — "background colour
+// erase", which every common terminal does — so a clear issued while the last
+// cell's blue background is still set paints the whole screen blue. The diff
+// then only rewrites the cells that differ from a blank buffer, and every cell
+// the frame leaves blank keeps that blue. Anything that erases or scrolls must
+// reset first.
+func (w *writer) resetStyle() {
+	if w.styleKnown && w.curFg == catatui.ColorReset && w.curBg == catatui.ColorReset &&
+		w.curUnderline == catatui.ColorReset && w.curModifier == 0 {
+		return
+	}
+	w.csi("0m")
+	w.curFg, w.curBg, w.curUnderline = catatui.ColorReset, catatui.ColorReset, catatui.ColorReset
+	w.curModifier = 0
+	w.styleKnown = true
+}
+
 var modifierCodes = []struct {
 	bit catatui.Modifier
 	on  string

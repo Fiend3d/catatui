@@ -68,6 +68,12 @@ func (b *Backend) Draw(cells []catatui.PositionedCell) error {
 			b.w.invalidateCursor()
 		}
 	}
+	// A frame ends on default attributes. Anything that happens between frames
+	// and paints cells we did not ask for — the terminal reflowing on a window
+	// resize, a scroll, an erase — uses whatever colour is left set, so leaving
+	// the last cell's style in effect is what turns a resize into a screenful
+	// of that colour.
+	b.w.resetStyle()
 	return nil
 }
 
@@ -138,6 +144,10 @@ func (b *Backend) Clear() error { return b.ClearRegion(catatui.ClearAll) }
 
 // ClearRegion erases part of the screen.
 func (b *Backend) ClearRegion(t catatui.ClearType) error {
+	// Erasing fills with the background colour currently in effect, so the last
+	// cell drawn would become the colour of everything erased. See
+	// writer.resetStyle.
+	b.w.resetStyle()
 	switch t {
 	case catatui.ClearAll:
 		b.w.csi("2J")
@@ -171,6 +181,9 @@ func (b *Backend) Flush() error { return b.w.flush() }
 
 // AppendLines scrolls the terminal up by n lines.
 func (b *Backend) AppendLines(n uint16) error {
+	// Scrolling fills the lines it exposes with the current background colour,
+	// the same trap as erasing.
+	b.w.resetStyle()
 	for range n {
 		b.w.w.WriteString("\n")
 	}

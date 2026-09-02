@@ -183,16 +183,19 @@ func TestBackendResetsBeforeRemovingAModifier(t *testing.T) {
 	}
 }
 
+// TestBackendClearRegion also pins the reset in front of every erase: the erase
+// sequences fill with the background colour currently in effect, and on a fresh
+// backend that is whatever the shell happened to leave set.
 func TestBackendClearRegion(t *testing.T) {
 	cases := []struct {
 		t    catatui.ClearType
 		want string
 	}{
-		{catatui.ClearAll, "\x1b[2J"},
-		{catatui.ClearAfterCursor, "\x1b[0J"},
-		{catatui.ClearBeforeCursor, "\x1b[1J"},
-		{catatui.ClearCurrentLine, "\x1b[2K"},
-		{catatui.ClearUntilNewLine, "\x1b[0K"},
+		{catatui.ClearAll, "\x1b[0m\x1b[2J"},
+		{catatui.ClearAfterCursor, "\x1b[0m\x1b[0J"},
+		{catatui.ClearBeforeCursor, "\x1b[0m\x1b[1J"},
+		{catatui.ClearCurrentLine, "\x1b[0m\x1b[2K"},
+		{catatui.ClearUntilNewLine, "\x1b[0m\x1b[0K"},
 	}
 	for _, c := range cases {
 		var out bytes.Buffer
