@@ -59,6 +59,7 @@ Working and tested:
 | Backends | `catatui/term` (Windows + Unix), `TestBackend` |
 | Terminal control | raw mode, alt screen, mouse, bracketed paste, focus, cursor shape |
 | Symbols | box-drawing, block, bar, braille and half-block characters, border merging |
+| Palettes | the tailwind and Material design colour ramps |
 | Widgets | the whole `ratatui-widgets` library, listed below |
 
 The widget library is complete: `Block` (borders, titles, padding, shadow,
@@ -87,6 +88,10 @@ expectations written from scratch:
   `tools/gen_layout_tests.py`, covering every constraint type, every flex mode,
   spacing and overlap. Regenerate with
   `python tools/gen_layout_tests.py && gofmt -w layout_cases_test.go`.
+- **The colour palettes**, translated from ratatui's by `tools/gen_palettes.py`.
+  The generated values are checked against Tailwind's and Material design's own
+  published tables, and every ramp is asserted to run light to dark, which is
+  what would catch a shade written out of order.
 - **kasuari's quadrilateral test**, which reproduces the Rust solver's exact
   values for a mixed system of required, weighted and inequality constraints.
 - **ratatui's buffer, style, color, rect and widget tests**, ported by hand —

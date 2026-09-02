@@ -53,6 +53,38 @@ for unset so that `Style` stays comparable and allocation-free, and `ColorReset`
 is a distinct explicit variant. Everywhere else the two behave exactly like
 `None` and `Some(Reset)`.
 
+## Palettes
+
+The sixteen named colours are whatever the terminal's theme says they are, which
+is fine for accents and awkward for a design that wants specific shades. For
+those, `catatui/palette/tailwind` and `catatui/palette/material` hold the
+Tailwind CSS and Material design ramps that ratatui ships: one palette per hue,
+in shades from `C50` at the lightest to `C950` (tailwind) or `C900` (material)
+at the darkest, plus `A100` to `A700` accents on most Material palettes.
+
+```go
+package main
+
+import (
+	"github.com/Fiend3d/catatui"
+	"github.com/Fiend3d/catatui/palette/tailwind"
+)
+
+func panel() catatui.Style {
+	return catatui.NewStyle().
+		Fg(tailwind.Slate.C200).
+		Bg(tailwind.Slate.C900)
+}
+```
+
+Shades from one ramp read as a set, which is the point: picking `C700` for a
+border and `C900` for the fill behind it gives a contrast that holds up, where
+two hand-picked RGB values usually do not.
+
+These are 24-bit colours. A terminal without true colour support approximates
+them, so where that matters keep an indexed fallback beside them, as the
+[flex example](../../examples/flex) does.
+
 ## Modifier
 
 `Modifier` is a bit set of text attributes, matching ratatui's bitflags. Combine

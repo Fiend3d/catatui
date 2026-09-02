@@ -62,6 +62,8 @@ SEED = """package seed
 
 import (
 	_ "github.com/Fiend3d/catatui"
+	_ "github.com/Fiend3d/catatui/palette/material"
+	_ "github.com/Fiend3d/catatui/palette/tailwind"
 	_ "github.com/Fiend3d/catatui/symbols"
 	_ "github.com/Fiend3d/catatui/term"
 	_ "github.com/Fiend3d/catatui/widgets"

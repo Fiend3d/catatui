@@ -75,6 +75,9 @@
 //   - [github.com/Fiend3d/catatui/widgets]: the widget library — Block,
 //     Paragraph, List, Table, Chart, Canvas and the rest.
 //   - [github.com/Fiend3d/catatui/symbols]: the characters widgets draw with.
+//   - [github.com/Fiend3d/catatui/palette/tailwind] and
+//     [github.com/Fiend3d/catatui/palette/material]: named colour ramps, for
+//     when the sixteen ANSI colours are not enough.
 //
 // # Things worth knowing early
 //

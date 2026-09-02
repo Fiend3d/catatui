@@ -7,11 +7,11 @@ import (
 	"strconv"
 
 	"github.com/Fiend3d/catatui"
+	"github.com/Fiend3d/catatui/palette/tailwind"
 )
 
-// palette holds the colours the demo uses. ratatui takes these from its
-// tailwind palette, which catatui does not have; the values are the same
-// tailwind shades, named in the comments.
+// theme holds the colours the demo uses, taken from the tailwind palette as
+// ratatui's does.
 var theme = newTheme()
 
 type themeColors struct {
@@ -29,29 +29,31 @@ type themeColors struct {
 // newTheme picks true colour where the terminal can be trusted with it, and
 // the nearest 256-colour indexes where it cannot.
 func newTheme() themeColors {
-	color := func(trueColor uint32, indexed uint8) catatui.Color {
+	// The palette is 24-bit; where that is not available the nearest indexed
+	// colour stands in.
+	color := func(trueColor catatui.Color, indexed uint8) catatui.Color {
 		if isTrueColorSupported() {
-			return catatui.RgbFromU32(trueColor)
+			return trueColor
 		}
 		return catatui.Indexed(indexed)
 	}
 
 	return themeColors{
-		minBg:         color(0x1e3a8a, 24),  // blue 900
-		maxBg:         color(0x1e40af, 25),  // blue 800
-		lengthBg:      color(0x334155, 67),  // slate 700
-		percentageBg:  color(0x1e293b, 18),  // slate 800
-		ratioBg:       color(0x0f172a, 17),  // slate 900
-		fillBg:        color(0x020617, 16),  // slate 950
-		descriptionFg: color(0x94a3b8, 109), // slate 400
+		minBg:         color(tailwind.Blue.C900, 24),
+		maxBg:         color(tailwind.Blue.C800, 25),
+		lengthBg:      color(tailwind.Slate.C700, 67),
+		percentageBg:  color(tailwind.Slate.C800, 18),
+		ratioBg:       color(tailwind.Slate.C900, 17),
+		fillBg:        color(tailwind.Slate.C950, 16),
+		descriptionFg: color(tailwind.Slate.C400, 109),
 		tab: []catatui.Color{
-			tabLegacy:       color(0xfb923c, 173), // orange 400
-			tabStart:        color(0x38bdf8, 74),  // sky 400
-			tabCenter:       color(0x7dd3fc, 116), // sky 300
-			tabEnd:          color(0xbae6fd, 152), // sky 200
-			tabSpaceAround:  color(0x6366f1, 68),  // indigo 500
-			tabSpaceEvenly:  color(0x818cf8, 104), // indigo 400
-			tabSpaceBetween: color(0xa5b4fc, 146), // indigo 300
+			tabLegacy:       color(tailwind.Orange.C400, 173),
+			tabStart:        color(tailwind.Sky.C400, 74),
+			tabCenter:       color(tailwind.Sky.C300, 116),
+			tabEnd:          color(tailwind.Sky.C200, 152),
+			tabSpaceAround:  color(tailwind.Indigo.C500, 68),
+			tabSpaceEvenly:  color(tailwind.Indigo.C400, 104),
+			tabSpaceBetween: color(tailwind.Indigo.C300, 146),
 		},
 	}
 }
