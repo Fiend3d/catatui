@@ -2,10 +2,7 @@
 
 package catatui
 
-import (
-	"strings"
-	"testing"
-)
+import "testing"
 
 func TestBufferTranslatesToAndFromCoordinates(t *testing.T) {
 	area := NewRect(200, 100, 50, 80)
@@ -341,59 +338,52 @@ func TestAssertBufferDetectsStyleDifference(t *testing.T) {
 
 // TestDiffDoesNotBlankBehindAFreshEmojiSequence is the rainbow-flag case.
 //
-// ratatui-v0.30.2 clears the trailing columns of an emoji presentation sequence
-// on every frame that draws one. Those writes land on the columns the terminal
-// has just shaped the rest of the glyph into, which breaks the ligature:
+// ratatui-v0.30.2 clears the trailing column of an emoji presentation sequence
+// on every frame that draws one. That write lands on the column the terminal
+// has just shaped the second half of the glyph into, which breaks the ligature:
 // 🏳️‍🌈 falls back to a bare 🏳 until some later frame rewrites the leading
 // cell alone and it repairs itself. A wide cluster covers its own columns, so
 // there is nothing to write there.
-//
-// How many columns the flag covers is the width policy's business and differs
-// by platform, so the test asks rather than assumes.
 func TestDiffDoesNotBlankBehindAFreshEmojiSequence(t *testing.T) {
-	const rainbowFlag = "🏳️‍🌈"
-	width := uint16(StringWidth(rainbowFlag))
+	const rainbowFlag = "\U0001F3F3\uFE0F\u200D\U0001F308"
 
-	prev := NewBuffer(NewRect(0, 0, width+2, 1))
-	prev.SetString(0, 0, strings.Repeat("a", int(width)+2), NewStyle())
-	next := NewBuffer(NewRect(0, 0, width+2, 1))
+	prev := NewBuffer(NewRect(0, 0, 4, 1))
+	prev.SetString(0, 0, "ab", NewStyle())
+	next := NewBuffer(NewRect(0, 0, 4, 1))
 	next.SetString(0, 0, rainbowFlag, NewStyle())
 
 	for _, pc := range prev.Diff(next) {
-		if pc.X >= 1 && pc.X < width {
-			t.Errorf("column %d was written (%q); it is covered by the glyph at column 0",
-				pc.X, pc.Cell.GetSymbol())
+		if pc.X == 1 {
+			t.Errorf("column 1 was written (%q); it is covered by the glyph at column 0",
+				pc.Cell.GetSymbol())
 		}
 	}
 }
 
 // TestDiffClearsBehindAReplacedEmojiSequence is what the clearing was for:
-// terminals do not reliably drop the trailing columns of an emoji presentation
+// terminals do not reliably drop the trailing column of an emoji presentation
 // sequence when it is replaced, and unlike plain CJK that holds even on a
 // default background.
 func TestDiffClearsBehindAReplacedEmojiSequence(t *testing.T) {
-	const rainbowFlag = "🏳️‍🌈"
-	width := uint16(StringWidth(rainbowFlag))
+	const rainbowFlag = "\U0001F3F3\uFE0F\u200D\U0001F308"
 
-	prev := NewBuffer(NewRect(0, 0, width+2, 1))
+	prev := NewBuffer(NewRect(0, 0, 4, 1))
 	prev.SetString(0, 0, rainbowFlag, NewStyle())
-	next := NewBuffer(NewRect(0, 0, width+2, 1))
+	next := NewBuffer(NewRect(0, 0, 4, 1))
 	next.SetString(0, 0, "a", NewStyle())
 
-	// Those columns hold a blank in both buffers, so only the forced rewrite
-	// puts them on the wire.
-	cleared := make(map[uint16]bool)
+	// Column 1 holds a blank in both buffers, so only the forced rewrite puts
+	// it on the wire.
+	var cleared bool
 	for _, pc := range prev.Diff(next) {
-		if pc.X >= 1 && pc.X < width {
-			cleared[pc.X] = true
+		if pc.X == 1 {
+			cleared = true
 			if got := pc.Cell.GetSymbol(); got != " " {
-				t.Errorf("column %d = %q, want a blank", pc.X, got)
+				t.Errorf("column 1 = %q, want a blank", got)
 			}
 		}
 	}
-	for x := uint16(1); x < width; x++ {
-		if !cleared[x] {
-			t.Errorf("column %d, which the flag used to cover, was never rewritten", x)
-		}
+	if !cleared {
+		t.Error("the column the flag used to cover was never rewritten")
 	}
 }

@@ -15,9 +15,7 @@ const (
 )
 
 // countHalfwidthSoundMarks counts the halfwidth katakana voiced and
-// semi-voiced sound marks in a cluster. Terminals render them in a column of
-// their own even though Unicode scores them as zero-width combining marks, so
-// both width policies have to know about them.
+// semi-voiced sound marks in a cluster.
 func countHalfwidthSoundMarks(s string) uint16 {
 	var n uint16
 	for _, r := range s {
@@ -32,17 +30,6 @@ func countHalfwidthSoundMarks(s string) uint16 {
 //
 // Every width decision in the library goes through here; having more than one
 // notion of width is what makes rows drift out of alignment.
-//
-// The policy itself lives in clusterWidth, which is per-platform, because the
-// number this has to produce is not a property of Unicode but of the terminal:
-// it is how far the cursor moves after the cluster is printed. Get it wrong in
-// either direction and the frame is corrupted. Predict too few columns and the
-// next cell is written on top of a glyph the terminal has already laid down,
-// erasing part of it. Predict too many and the extra columns are never written
-// -- a wide cell covers its own trailing columns, so the diff skips them -- and
-// whatever the previous frame left there stays on screen.
-//
-// See cellwidth_windows.go and cellwidth_other.go.
 func cellWidth(s string) uint16 {
 	// A single byte is ASCII, and control characters are filtered out before
 	// they reach here, so it is always exactly one column.
@@ -50,6 +37,46 @@ func cellWidth(s string) uint16 {
 		return 1
 	}
 	return clusterWidth(s, uniseg.StringWidth(s))
+}
+
+// clusterWidth applies the width policy to one grapheme cluster, given the
+// width uniseg measured for it while segmenting.
+//
+// The number wanted here is not a property of the text but of the terminal: it
+// is how far the cursor moves once the cluster has been printed. Getting it
+// wrong in either direction corrupts the frame. Too few columns and the next
+// cell is written on top of a glyph the terminal has already laid down, taking
+// part of the glyph with it. Too many and the extra columns are never written
+// at all — a wide cell covers its own trailing columns, so the diff skips them
+// — and whatever the previous frame left there stays on screen.
+//
+// A terminal that segments text into grapheme clusters, which is what Windows
+// Terminal, kitty, WezTerm and VTE do, advances by the cluster's unicode width,
+// and that is what uniseg reports: a spacing combining mark adds a column, a
+// non-spacing one adds none, and a sequence held together by joiners counts
+// once. So the measured width is taken as it comes.
+//
+// The halfwidth katakana sound marks are the single correction: terminals
+// render them in a column of their own even though Unicode scores them as
+// zero-width combining marks.
+//
+// Two things this must not do, both learned against Windows Terminal by
+// watching the screen. It must not cap a cluster at its widest rune on the
+// theory that one glyph costs one advance: हि is drawn as a single glyph and
+// still costs two columns, and measuring it as one wiped out every consonant
+// carrying a spacing vowel sign, turning हिन्दी into न्दी. And it must not sum
+// the code points the way the legacy console buffer does: that scores a
+// zero-width joiner and a combining accent a column each, so a four-person
+// family measures eleven where the terminal draws two, and the nine columns
+// nobody then writes keep the previous frame's text.
+//
+// The console API is no guide here. GetConsoleScreenBufferInfo reports the
+// per-code-point figure — 11 for that family — even under Windows Terminal,
+// whose screen shows 2. The terminal's own buffer is what the user sees, and
+// the only way to measure it is to look.
+func clusterWidth(cluster string, unisegWidth int) uint16 {
+	w := uint16(min(max(unisegWidth, 0), maxU16))
+	return SatAdd(w, countHalfwidthSoundMarks(cluster))
 }
 
 // GraphemeWidth is the number of terminal columns one grapheme cluster

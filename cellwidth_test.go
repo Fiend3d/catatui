@@ -38,6 +38,12 @@ func TestCellWidth(t *testing.T) {
 		{"hiragana with halfwidth dakuten", "あﾞ", 3},
 		{"kanji with halfwidth dakuten", "紅ﾞ", 3},
 
+		// True combining marks get no special handling: they are zero-width.
+		{"combining dakuten on halfwidth", "ｶ゙", 1}, // U+FF76 + U+3099
+		{"combining dakuten on fullwidth", "ガ", 2}, // U+30AB + U+3099
+		{"combining handakuten on halfwidth", "ﾊ゚", 1},
+		{"combining handakuten on fullwidth", "パ", 2},
+
 		// Mixed text is unchanged.
 		{"halfwidth katakana", "ｶ", 1},
 		{"fullwidth katakana", "カ", 2},
@@ -88,15 +94,13 @@ func TestGraphemesFiltersControlAndZeroWidth(t *testing.T) {
 		}
 	}
 
-	// A base character and its combining mark stay in one cluster. How wide
-	// that cluster is depends on the terminal, and is pinned per platform in
-	// cellwidth_windows_test.go and cellwidth_other_test.go.
+	// A base character and its combining mark stay in one cluster of width 1.
 	got = Graphemes("é")
 	if len(got) != 1 {
 		t.Fatalf("combining mark should stay in one cluster, got %+v", got)
 	}
-	if got[0].Symbol != "é" {
-		t.Errorf("cluster = %q, want %q", got[0].Symbol, "é")
+	if got[0].Symbol != "é" || got[0].Width != 1 {
+		t.Errorf("cluster = %q width %d, want %q width 1", got[0].Symbol, got[0].Width, "é")
 	}
 }
 
@@ -207,6 +211,70 @@ func TestAllGraphemesDoesNotAllocate(t *testing.T) {
 	})
 	if got != 0 {
 		t.Errorf("AllGraphemes allocated %.1f times per run, want 0", got)
+	}
+}
+
+// TestClusterWidthIsTheTerminalsAdvance pins the width policy against what a
+// terminal actually does with a cluster.
+//
+// These numbers were read off Windows Terminal's screen, which is the only
+// place the answer exists: the console API disagrees with the terminal hosting
+// it, reporting a width per code point where the screen advances per cluster.
+// Both of the tempting alternatives were tried against it and left visible
+// damage.
+//
+// Capping a cluster at its widest rune, on the theory that a single glyph takes
+// a single advance, measures हि as one column. The terminal moves two, so the
+// next cluster was written into the middle of the glyph and the pair was lost:
+// a page of Devanagari, Bengali, Tamil and Telugu came out with every consonant
+// carrying a spacing vowel sign missing.
+//
+// Summing the code points, which is what the legacy console buffer does, scores
+// a joiner and a non-spacing mark a column each: 👨‍👩‍👧‍👦 measures eleven
+// where the terminal draws two. Nothing writes the nine columns in between — a
+// wide cell covers its own trailing columns and the diff skips them — so the
+// previous frame's text stayed on screen beside every combining mark and every
+// joined emoji.
+func TestClusterWidthIsTheTerminalsAdvance(t *testing.T) {
+	for _, c := range []struct {
+		text string
+		want int
+	}{
+		// A spacing combining mark takes a column of its own, however tightly
+		// the pair is drawn.
+		{"हि", 2},  // Devanagari vowel sign I
+		{"पा", 2},  // Devanagari vowel sign AA
+		{"री", 2},  // Devanagari vowel sign II
+		{"সো", 2},  // Bengali vowel sign O
+		{"மி", 2},  // Tamil vowel sign I
+		{"বাং", 2}, // Bengali vowel sign AA plus anusvara, which is non-spacing
+
+		// A non-spacing mark takes none, so a virama-joined conjunct is as wide
+		// as its consonants.
+		{"न्", 1},
+		{"á", 1},
+		{"á", 1},
+		{"ก็", 1},
+		{"हिन्दी", 5}, // हि(2) + न्(1) + दी(2)
+		{"தமிழ்", 4},
+
+		// A sequence held together by joiners is drawn once and counts once.
+		{"👨‍👩‍👧‍👦", 2},
+		{"🏳️‍🌈", 2},
+		{"🇯🇵", 2},
+
+		// The rest is plain unicode width.
+		{"日", 2},
+		{"日本語", 6},
+		{"한글", 4},
+		{"ｱ", 1},
+		{"ア", 2},
+		{"ﾊﾞ", 2}, // halfwidth katakana plus a sound mark, drawn in two columns
+		{"e", 1},
+	} {
+		if got := StringWidth(c.text); got != c.want {
+			t.Errorf("StringWidth(%q) = %d, want %d", c.text, got, c.want)
+		}
 	}
 }
 
