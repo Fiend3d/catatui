@@ -5,7 +5,6 @@ package catatui
 import (
 	"iter"
 	"strings"
-	"unicode/utf8"
 
 	"github.com/rivo/uniseg"
 )
@@ -15,10 +14,35 @@ const (
 	halfwidthKatakanaSemiVoicedSoundMark = 'ﾟ' // ﾟ
 )
 
+// countHalfwidthSoundMarks counts the halfwidth katakana voiced and
+// semi-voiced sound marks in a cluster. Terminals render them in a column of
+// their own even though Unicode scores them as zero-width combining marks, so
+// both width policies have to know about them.
+func countHalfwidthSoundMarks(s string) uint16 {
+	var n uint16
+	for _, r := range s {
+		if r == halfwidthKatakanaVoicedSoundMark || r == halfwidthKatakanaSemiVoicedSoundMark {
+			n = SatAdd(n, 1)
+		}
+	}
+	return n
+}
+
 // cellWidth is the number of terminal columns a grapheme cluster occupies.
 //
 // Every width decision in the library goes through here; having more than one
 // notion of width is what makes rows drift out of alignment.
+//
+// The policy itself lives in clusterWidth, which is per-platform, because the
+// number this has to produce is not a property of Unicode but of the terminal:
+// it is how far the cursor moves after the cluster is printed. Get it wrong in
+// either direction and the frame is corrupted. Predict too few columns and the
+// next cell is written on top of a glyph the terminal has already laid down,
+// erasing part of it. Predict too many and the extra columns are never written
+// -- a wide cell covers its own trailing columns, so the diff skips them -- and
+// whatever the previous frame left there stays on screen.
+//
+// See cellwidth_windows.go and cellwidth_other.go.
 func cellWidth(s string) uint16 {
 	// A single byte is ASCII, and control characters are filtered out before
 	// they reach here, so it is always exactly one column.
@@ -26,50 +50,6 @@ func cellWidth(s string) uint16 {
 		return 1
 	}
 	return clusterWidth(s, uniseg.StringWidth(s))
-}
-
-// clusterWidth applies the width policy to one grapheme cluster, given the
-// width uniseg measured for it while segmenting.
-//
-// This is not plain unicode width, in two places.
-//
-// A cluster is drawn as a single glyph and advances by its base character, not
-// by the sum of its parts, so it is capped at its widest rune. uniseg instead
-// adds a column for every spacing combining mark, which over-counts Indic text
-// badly: हि, दी and மி each measure two columns and are drawn in one, so every
-// consonant carrying a spacing vowel sign leaves a hole beside it — visible as
-// a gap in any background painted across the text. The cap leaves CJK, emoji
-// sequences, regional indicators and Hangul exactly where uniseg put them,
-// since in those a rune as wide as the cluster is always present.
-//
-// Then the halfwidth katakana voiced and semi-voiced sound marks get a column
-// added back: terminals render them in a column of their own even though
-// Unicode scores them as zero-width combining marks.
-func clusterWidth(cluster string, unisegWidth int) uint16 {
-	w := uint16(min(max(unisegWidth, 0), maxU16))
-	// Only a cluster of more than one rune can have been over-counted, since
-	// what uniseg adds is a column per spacing mark. Skipping the scan for a
-	// lone rune keeps the cap off the path CJK takes, which is most of the
-	// non-ASCII a Buffer ever draws.
-	if w > 1 {
-		if _, n := utf8.DecodeRuneInString(cluster); n < len(cluster) {
-			if widest := widestRune(cluster); widest < w {
-				w = widest
-			}
-		}
-	}
-	return SatAdd(w, countHalfwidthSoundMarks(cluster))
-}
-
-// widestRune is the widest single rune in a cluster, measured on its own.
-func widestRune(cluster string) uint16 {
-	var widest uint16
-	for _, r := range cluster {
-		if w := uint16(min(max(uniseg.StringWidth(string(r)), 0), maxU16)); w > widest {
-			widest = w
-		}
-	}
-	return widest
 }
 
 // GraphemeWidth is the number of terminal columns one grapheme cluster
@@ -82,16 +62,6 @@ func widestRune(cluster string) uint16 {
 // come to disagree with the ones a Buffer draws.
 func GraphemeWidth(cluster string, unisegWidth int) int {
 	return int(clusterWidth(cluster, unisegWidth))
-}
-
-func countHalfwidthSoundMarks(s string) uint16 {
-	var n uint16
-	for _, r := range s {
-		if r == halfwidthKatakanaVoicedSoundMark || r == halfwidthKatakanaSemiVoicedSoundMark {
-			n = SatAdd(n, 1)
-		}
-	}
-	return n
 }
 
 // Grapheme is one extended grapheme cluster together with the number of

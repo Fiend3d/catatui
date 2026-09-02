@@ -16,10 +16,18 @@ import (
 // tests below drive this screen with a deliberately wrong advance, so a backend
 // that trusts its own prediction fails and one that re-anchors does not.
 type vtScreen struct {
-	cells          [][]string
-	w, h           uint16
-	x, y           uint16
-	advance        func(string) uint16
+	cells [][]string
+	w, h  uint16
+	x, y  uint16
+	// advance is how far the cursor moves after a cluster is printed.
+	advance func(string) uint16
+	// spread is what the terminal leaves in the columns the cluster covers: one
+	// entry per column, an empty entry meaning the cell is left as it was. A
+	// terminal that keeps a cluster together puts the whole of it in the first
+	// cell; the Windows console spreads it one code point per cell, which is
+	// what makes a write into the middle of a glyph destroy it. nil means the
+	// former.
+	spread         func(string) []string
 	wroteOffScreen bool
 }
 
@@ -90,8 +98,29 @@ func (s *vtScreen) put(cluster string) {
 		s.wroteOffScreen = true
 		return
 	}
-	s.cells[s.y][s.x] = cluster
+	if s.spread == nil {
+		// A terminal that keeps a cluster together: the whole of it goes in the
+		// first cell and it covers the rest of its columns itself, so those are
+		// left exactly as they were.
+		s.cells[s.y][s.x] = cluster
+	} else {
+		for i, p := range s.spread(cluster) {
+			if s.x+uint16(i) < s.w {
+				s.cells[s.y][s.x+uint16(i)] = p
+			}
+		}
+	}
 	s.x += max(s.advance(cluster), 1)
+}
+
+// textAt reads back the n columns starting at (x, y), which is the glyph a
+// terminal shows there.
+func (s *vtScreen) textAt(x, y, n uint16) string {
+	var sb strings.Builder
+	for i := uint16(0); i < n && x+i < s.w; i++ {
+		sb.WriteString(s.cells[y][x+i])
+	}
+	return sb.String()
 }
 
 // render drives a Backend over the given cells and returns the screen a
@@ -112,6 +141,58 @@ func renderOnVT(t *testing.T, w, h uint16, advance func(string) uint16,
 	screen := newVTScreen(w, h, advance)
 	screen.feed(out.String())
 	return screen
+}
+
+// renderOnConsole drives a Backend over the given cells and returns the screen
+// the Windows console would end up showing.
+//
+// The console is modelled from measurement: it has no notion of a grapheme
+// cluster, so it stores one code point per cell and advances by every one of
+// them, never by less than a column. Anything written into the columns a
+// cluster covers therefore lands on part of that cluster and destroys it.
+func renderOnConsole(t *testing.T, w, h uint16, frames ...[]catatui.PositionedCell) *vtScreen {
+	t.Helper()
+	var out strings.Builder
+	b := NewBackend(&out)
+	for _, cells := range frames {
+		if err := b.Draw(cells); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := b.Flush(); err != nil {
+		t.Fatal(err)
+	}
+	screen := newVTScreen(w, h, consoleAdvance)
+	screen.spread = consoleSpread
+	screen.feed(out.String())
+	return screen
+}
+
+// consoleSpread lays a cluster out one code point per cell. The second column
+// of a wide code point is emptied: the code point to its left covers it, and
+// nothing of its own is shown there.
+func consoleSpread(cluster string) []string {
+	var out []string
+	for _, r := range cluster {
+		out = append(out, string(r))
+		for i := uint16(1); i < consoleRuneWidth(r); i++ {
+			out = append(out, "")
+		}
+	}
+	return out
+}
+
+func consoleAdvance(cluster string) uint16 {
+	var w uint16
+	for _, r := range cluster {
+		w += consoleRuneWidth(r)
+	}
+	return w
+}
+
+// consoleRuneWidth is a code point's own width, floored at one column.
+func consoleRuneWidth(r rune) uint16 {
+	return uint16(max(catatui.StringWidth(string(r)), 1))
 }
 
 // cellsOf lays a string out as one row of cells starting at x, one cell per
@@ -192,6 +273,44 @@ func TestBackendIsExactOnAWellBehavedTerminal(t *testing.T) {
 	for _, pc := range cells {
 		if got, want := screen.cells[pc.Y][pc.X], pc.Cell.GetSymbol(); got != want {
 			t.Errorf("cell (%d,%d) shows %q, want %q", pc.X, pc.Y, got, want)
+		}
+	}
+}
+
+// TestBackendSurvivesATerminalThatSplitsClustersIntoCells is the bug the user
+// reported: Devanagari, Bengali, Tamil and Telugu came out with whole clusters
+// missing, हिन्दी drawn as न्दी and भारत as रत.
+//
+// The cause was arithmetic, not shaping. The Windows console spends a cell on
+// every code point, so a consonant carrying a spacing vowel sign covers two
+// columns; measuring it as the one glyph it is drawn as put the next cell on
+// top of its second half and the console dropped the pair. Every cluster here
+// is placed at the column the width policy predicts, and every one of them has
+// to read back whole.
+func TestBackendSurvivesATerminalThatSplitsClustersIntoCells(t *testing.T) {
+	lines := []string{
+		"हिन्दी परीक्षण पाठ।",
+		"भारत एक महान देश है।",
+		"বাংলা পরীক্ষা লেখা।",
+		"தமிழ் சோதனை உரை.",
+		"తెలుగు పరీక్ష వచనం.",
+		"ภาษาไทยทดสอบ",
+		"العربية اختبار",
+		"日本語 mixed ascii",
+	}
+	for _, line := range lines {
+		cells := cellsOf(0, 0, line)
+		screen := renderOnConsole(t, 80, 2, cells)
+		if screen.wroteOffScreen {
+			t.Errorf("%q: the backend wrote outside the screen", line)
+		}
+		for _, pc := range cells {
+			symbol := pc.Cell.GetSymbol()
+			w := uint16(catatui.StringWidth(symbol))
+			if got := screen.textAt(pc.X, pc.Y, w); got != symbol {
+				t.Errorf("%q: the glyph at column %d reads back as %q, want %q",
+					line, pc.X, got, symbol)
+			}
 		}
 	}
 }

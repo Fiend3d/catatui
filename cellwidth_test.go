@@ -38,12 +38,6 @@ func TestCellWidth(t *testing.T) {
 		{"hiragana with halfwidth dakuten", "あﾞ", 3},
 		{"kanji with halfwidth dakuten", "紅ﾞ", 3},
 
-		// True combining marks get no special handling: they are zero-width.
-		{"combining dakuten on halfwidth", "ｶ゙", 1}, // U+FF76 + U+3099
-		{"combining dakuten on fullwidth", "ガ", 2}, // U+30AB + U+3099
-		{"combining handakuten on halfwidth", "ﾊ゚", 1},
-		{"combining handakuten on fullwidth", "パ", 2},
-
 		// Mixed text is unchanged.
 		{"halfwidth katakana", "ｶ", 1},
 		{"fullwidth katakana", "カ", 2},
@@ -94,13 +88,15 @@ func TestGraphemesFiltersControlAndZeroWidth(t *testing.T) {
 		}
 	}
 
-	// A base character and its combining mark stay in one cluster of width 1.
+	// A base character and its combining mark stay in one cluster. How wide
+	// that cluster is depends on the terminal, and is pinned per platform in
+	// cellwidth_windows_test.go and cellwidth_other_test.go.
 	got = Graphemes("é")
 	if len(got) != 1 {
 		t.Fatalf("combining mark should stay in one cluster, got %+v", got)
 	}
-	if got[0].Symbol != "é" || got[0].Width != 1 {
-		t.Errorf("cluster = %q width %d, want %q width 1", got[0].Symbol, got[0].Width, "é")
+	if got[0].Symbol != "é" {
+		t.Errorf("cluster = %q, want %q", got[0].Symbol, "é")
 	}
 }
 
@@ -211,49 +207,6 @@ func TestAllGraphemesDoesNotAllocate(t *testing.T) {
 	})
 	if got != 0 {
 		t.Errorf("AllGraphemes allocated %.1f times per run, want 0", got)
-	}
-}
-
-// TestClusterWidthCapsAClusterAtItsWidestRune pins the width policy that keeps
-// Indic text from being drawn full of holes.
-//
-// Unicode scores a spacing combining mark one column, so uniseg measures a
-// consonant carrying one as two. A terminal shapes the pair into a single glyph
-// and draws it in one cell, so the second column is left over: text comes out
-// gappy and a background painted across it has a hole beside every such
-// consonant. A cluster is one glyph and takes its base character's advance.
-func TestClusterWidthCapsAClusterAtItsWidestRune(t *testing.T) {
-	for _, c := range []struct {
-		text string
-		want int
-	}{
-		// Capped: a one-column base carrying a spacing mark.
-		{"हि", 1},  // Devanagari vowel sign I
-		{"पा", 1},  // Devanagari vowel sign AA
-		{"री", 1},  // Devanagari vowel sign II
-		{"मि", 1},  // Tamil vowel sign I
-		{"சோ", 1},  // Tamil vowel sign O
-		{"বাং", 1}, // Bengali vowel sign AA plus anusvara
-		{"हिन्दी", 3},
-		{"தமிழ்", 3},
-
-		// Untouched: a rune as wide as the cluster is present in each.
-		{"日", 2},
-		{"日本語", 6},
-		{"한글", 4},
-		{"ｱ", 1},
-		{"ア", 2},
-		{"ﾊﾞ", 2}, // halfwidth katakana plus a sound mark, drawn in two columns
-		{"👨\u200d👩\u200d👧\u200d👦", 2},
-		{"🏳\ufe0f\u200d🌈", 2}, // first rune is one column; 🌈 keeps the cluster at two
-		{"🇯🇵", 2},
-		{"á", 1},
-		{"a\u0301", 1},
-		{"e", 1},
-	} {
-		if got := StringWidth(c.text); got != c.want {
-			t.Errorf("StringWidth(%q) = %d, want %d", c.text, got, c.want)
-		}
 	}
 }
 
