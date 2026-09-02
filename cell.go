@@ -2,6 +2,8 @@
 
 package catatui
 
+import "github.com/Fiend3d/catatui/symbols"
+
 // CellDiffOptionKind tags a CellDiffOption.
 type CellDiffOptionKind uint8
 
@@ -118,6 +120,25 @@ func (c Cell) GetSymbol() string {
 // SetSymbol sets the grapheme cluster drawn in the cell.
 func (c *Cell) SetSymbol(symbol string) *Cell {
 	c.Symbol = symbol
+	return c
+}
+
+// MergeSymbol draws symbol over whatever the cell already holds, combining the
+// two into a single box-drawing character where one exists. It is how a Block
+// collapses its border into the border of the block beside it; see
+// symbols.MergeStrategy for what each strategy does.
+//
+// A cell with no symbol set takes the new symbol as it is, rather than merging,
+// so drawing onto a fresh buffer behaves the same as SetSymbol. Merging is
+// limited to characters in Unicode's Box Drawing block.
+//
+//	buf.Get(x, y).MergeSymbol(symbols.Horizontal, symbols.MergeExact)
+func (c *Cell) MergeSymbol(symbol string, strategy symbols.MergeStrategy) *Cell {
+	if c.Symbol == "" {
+		c.Symbol = symbol
+		return c
+	}
+	c.Symbol = strategy.Merge(c.Symbol, symbol)
 	return c
 }
 

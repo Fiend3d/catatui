@@ -50,6 +50,21 @@ const (
 	ThickHorizontalDown = "┳"
 	ThickHorizontalUp   = "┻"
 	ThickCross          = "╋"
+
+	// The dashed lines come only as verticals and horizontals; there are no
+	// dashed corners or junctions.
+	LightDoubleDashVertical      = "╎"
+	HeavyDoubleDashVertical      = "╏"
+	LightTripleDashVertical      = "┆"
+	HeavyTripleDashVertical      = "┇"
+	LightQuadrupleDashVertical   = "┊"
+	HeavyQuadrupleDashVertical   = "┋"
+	LightDoubleDashHorizontal    = "╌"
+	HeavyDoubleDashHorizontal    = "╍"
+	LightTripleDashHorizontal    = "┄"
+	HeavyTripleDashHorizontal    = "┅"
+	LightQuadrupleDashHorizontal = "┈"
+	HeavyQuadrupleDashHorizontal = "┉"
 )
 
 // Block elements, used for gauges, bars and sparklines.
@@ -148,7 +163,32 @@ var (
 		HorizontalDown: ThickHorizontalDown, HorizontalUp: ThickHorizontalUp,
 		Cross: ThickCross,
 	}
+
+	// The dashed sets are LineNormal or LineThick with the straight runs
+	// dashed; their corners and junctions stay solid, because Unicode has no
+	// dashed ones.
+
+	// LineLightDoubleDashed is LineNormal with two-dash straights.
+	LineLightDoubleDashed = dashedLineSet(LineNormal, LightDoubleDashVertical, LightDoubleDashHorizontal)
+	// LineHeavyDoubleDashed is LineThick with two-dash straights.
+	LineHeavyDoubleDashed = dashedLineSet(LineThick, HeavyDoubleDashVertical, HeavyDoubleDashHorizontal)
+	// LineLightTripleDashed is LineNormal with three-dash straights.
+	LineLightTripleDashed = dashedLineSet(LineNormal, LightTripleDashVertical, LightTripleDashHorizontal)
+	// LineHeavyTripleDashed is LineThick with three-dash straights.
+	LineHeavyTripleDashed = dashedLineSet(LineThick, HeavyTripleDashVertical, HeavyTripleDashHorizontal)
+	// LineLightQuadrupleDashed is LineNormal with four-dash straights.
+	LineLightQuadrupleDashed = dashedLineSet(LineNormal, LightQuadrupleDashVertical, LightQuadrupleDashHorizontal)
+	// LineHeavyQuadrupleDashed is LineThick with four-dash straights.
+	LineHeavyQuadrupleDashed = dashedLineSet(LineThick, HeavyQuadrupleDashVertical, HeavyQuadrupleDashHorizontal)
 )
+
+// dashedLineSet copies a line set with the vertical and horizontal replaced by
+// their dashed forms.
+func dashedLineSet(base LineSet, vertical, horizontal string) LineSet {
+	base.Vertical = vertical
+	base.Horizontal = horizontal
+	return base
+}
 
 // BorderSet is the eight characters a Block needs to draw its border. It names
 // the two verticals and two horizontals separately so that a border can be
@@ -185,6 +225,19 @@ var (
 	BorderDouble = BorderFromLineSet(LineDouble)
 	// BorderThick is drawn with heavy lines.
 	BorderThick = BorderFromLineSet(LineThick)
+
+	// BorderLightDoubleDashed has two-dash sides and plain corners.
+	BorderLightDoubleDashed = BorderFromLineSet(LineLightDoubleDashed)
+	// BorderHeavyDoubleDashed has heavy two-dash sides and thick corners.
+	BorderHeavyDoubleDashed = BorderFromLineSet(LineHeavyDoubleDashed)
+	// BorderLightTripleDashed has three-dash sides and plain corners.
+	BorderLightTripleDashed = BorderFromLineSet(LineLightTripleDashed)
+	// BorderHeavyTripleDashed has heavy three-dash sides and thick corners.
+	BorderHeavyTripleDashed = BorderFromLineSet(LineHeavyTripleDashed)
+	// BorderLightQuadrupleDashed has four-dash sides and plain corners.
+	BorderLightQuadrupleDashed = BorderFromLineSet(LineLightQuadrupleDashed)
+	// BorderHeavyQuadrupleDashed has heavy four-dash sides and thick corners.
+	BorderHeavyQuadrupleDashed = BorderFromLineSet(LineHeavyQuadrupleDashed)
 
 	// BorderQuadrantOutside draws the border in the outer half of each cell,
 	// so adjacent blocks appear to share a single crisp line.

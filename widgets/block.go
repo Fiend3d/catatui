@@ -5,6 +5,8 @@
 package widgets
 
 import (
+	"fmt"
+
 	"github.com/Fiend3d/catatui"
 	"github.com/Fiend3d/catatui/symbols"
 )
@@ -38,6 +40,9 @@ func (b Borders) Intersects(other Borders) bool { return b&other != 0 }
 // BorderType selects the characters a Block's border is drawn with.
 type BorderType uint8
 
+// The dashed types come last rather than in ratatui's declaration order, so
+// that the ordinals of the types that were here first do not move. Nothing in
+// the API depends on the order.
 const (
 	// BorderPlain is a single-width line, and the default.
 	BorderPlain BorderType = iota
@@ -51,7 +56,59 @@ const (
 	BorderQuadrantOutside
 	// BorderQuadrantInside draws in the inner half of each cell.
 	BorderQuadrantInside
+	// BorderLightDoubleDashed is a single-width line with two dashes per
+	// cell and plain corners.
+	BorderLightDoubleDashed
+	// BorderHeavyDoubleDashed is a heavy line with two dashes per cell and
+	// thick corners.
+	BorderHeavyDoubleDashed
+	// BorderLightTripleDashed is a single-width line with three dashes per
+	// cell and plain corners.
+	BorderLightTripleDashed
+	// BorderHeavyTripleDashed is a heavy line with three dashes per cell and
+	// thick corners.
+	BorderHeavyTripleDashed
+	// BorderLightQuadrupleDashed is a single-width line with four dashes per
+	// cell and plain corners.
+	BorderLightQuadrupleDashed
+	// BorderHeavyQuadrupleDashed is a heavy line with four dashes per cell
+	// and thick corners.
+	BorderHeavyQuadrupleDashed
 )
+
+// String returns the border type's name.
+func (t BorderType) String() string {
+	if int(t) < len(borderTypeNames) {
+		return borderTypeNames[t]
+	}
+	return borderTypeNames[BorderPlain]
+}
+
+// ParseBorderType parses a border type's name, as String writes it.
+func ParseBorderType(s string) (BorderType, error) {
+	for i, name := range borderTypeNames {
+		if name == s {
+			return BorderType(i), nil
+		}
+	}
+	return BorderPlain, fmt.Errorf("catatui: unknown border type %q", s)
+}
+
+// borderTypeNames is indexed by BorderType, and uses ratatui's variant names.
+var borderTypeNames = [...]string{
+	BorderPlain:                "Plain",
+	BorderRounded:              "Rounded",
+	BorderDouble:               "Double",
+	BorderThick:                "Thick",
+	BorderQuadrantOutside:      "QuadrantOutside",
+	BorderQuadrantInside:       "QuadrantInside",
+	BorderLightDoubleDashed:    "LightDoubleDashed",
+	BorderHeavyDoubleDashed:    "HeavyDoubleDashed",
+	BorderLightTripleDashed:    "LightTripleDashed",
+	BorderHeavyTripleDashed:    "HeavyTripleDashed",
+	BorderLightQuadrupleDashed: "LightQuadrupleDashed",
+	BorderHeavyQuadrupleDashed: "HeavyQuadrupleDashed",
+}
 
 // Set returns the characters for a border type.
 func (t BorderType) Set() symbols.BorderSet {
@@ -66,6 +123,18 @@ func (t BorderType) Set() symbols.BorderSet {
 		return symbols.BorderQuadrantOutside
 	case BorderQuadrantInside:
 		return symbols.BorderQuadrantInside
+	case BorderLightDoubleDashed:
+		return symbols.BorderLightDoubleDashed
+	case BorderHeavyDoubleDashed:
+		return symbols.BorderHeavyDoubleDashed
+	case BorderLightTripleDashed:
+		return symbols.BorderLightTripleDashed
+	case BorderHeavyTripleDashed:
+		return symbols.BorderHeavyTripleDashed
+	case BorderLightQuadrupleDashed:
+		return symbols.BorderLightQuadrupleDashed
+	case BorderHeavyQuadrupleDashed:
+		return symbols.BorderHeavyQuadrupleDashed
 	default:
 		return symbols.BorderPlain
 	}
@@ -93,6 +162,30 @@ func HorizontalPadding(n uint16) Padding { return Padding{Left: n, Right: n} }
 
 // VerticalPadding returns padding on the top and bottom only.
 func VerticalPadding(n uint16) Padding { return Padding{Top: n, Bottom: n} }
+
+// ProportionalPadding returns padding that looks even on a terminal, where
+// cells are taller than they are wide: twice n on the left and right, n on the
+// top and bottom.
+func ProportionalPadding(n uint16) Padding {
+	return Padding{Left: 2 * n, Right: 2 * n, Top: n, Bottom: n}
+}
+
+// SymmetricPadding returns x on the left and right and y on the top and bottom.
+func SymmetricPadding(x, y uint16) Padding {
+	return Padding{Left: x, Right: x, Top: y, Bottom: y}
+}
+
+// LeftPadding returns padding on the left only.
+func LeftPadding(n uint16) Padding { return Padding{Left: n} }
+
+// RightPadding returns padding on the right only.
+func RightPadding(n uint16) Padding { return Padding{Right: n} }
+
+// TopPadding returns padding on the top only.
+func TopPadding(n uint16) Padding { return Padding{Top: n} }
+
+// BottomPadding returns padding on the bottom only.
+func BottomPadding(n uint16) Padding { return Padding{Bottom: n} }
 
 // TitlePosition is whether a title sits on the top or bottom border.
 type TitlePosition uint8
@@ -136,6 +229,7 @@ type Block struct {
 	padding         Padding
 	shadow          Shadow
 	hasShadow       bool
+	mergeBorders    symbols.MergeStrategy
 }
 
 // NewBlock returns a block with no borders and no titles.
@@ -201,6 +295,34 @@ func (b Block) BorderSet(s symbols.BorderSet) Block {
 	b.borderSet, b.borderSetIsSet = s, true
 	return b
 }
+
+// MergeBorders returns a copy of b whose border joins up with the borders
+// already on screen instead of covering them, which is how adjacent blocks are
+// made to share one line.
+//
+// The default is symbols.MergeReplace: the border is drawn straight over
+// whatever was there. symbols.MergeExact merges the two characters wherever a
+// single character shows both lines, and symbols.MergeFuzzy also merges the
+// combinations Unicode is missing by moving one of them to a nearby line style.
+//
+// Draw the blocks in the order you want them resolved — a merging block reads
+// what is under it, so it must be rendered after the block it joins:
+//
+//	widgets.Bordered().Render(catatui.NewRect(0, 0, 5, 5), buf)
+//	widgets.Bordered().
+//		MergeBorders(symbols.MergeExact).
+//		Render(catatui.NewRect(4, 0, 5, 5), buf)
+//
+// Merging only applies to box-drawing characters. Where a border runs into
+// anything else — a title, a widget's content — the border gives way and what
+// was there is kept.
+func (b Block) MergeBorders(strategy symbols.MergeStrategy) Block {
+	b.mergeBorders = strategy
+	return b
+}
+
+// GetMergeBorders returns how the block's border merges with what is under it.
+func (b Block) GetMergeBorders() symbols.MergeStrategy { return b.mergeBorders }
 
 // Style returns a copy of b with a style applied to the whole area, beneath
 // everything the block draws and anything drawn inside it.
@@ -289,24 +411,43 @@ func (b Block) renderBorders(area catatui.Rect, buf *catatui.Buffer) {
 	// Right() and Bottom() are one past the edge.
 	right, bottom := catatui.SatSub(area.Right(), 1), catatui.SatSub(area.Bottom(), 1)
 
-	if b.borders.Contains(BordersLeft) {
-		for y := top; y <= bottom; y++ {
-			buf.Get(left, y).SetSymbol(set.VerticalLeft).SetStyle(b.borderStyle)
-		}
+	// When the borders merge, each side stops one cell short of a corner this
+	// block also draws. Otherwise the corner cell would take the side's
+	// character first and the corner's on top of it, and merging the two would
+	// not give the corner back.
+	var inset uint16
+	if b.mergeBorders != symbols.MergeReplace {
+		inset = 1
 	}
-	if b.borders.Contains(BordersRight) {
-		for y := top; y <= bottom; y++ {
-			buf.Get(right, y).SetSymbol(set.VerticalRight).SetStyle(b.borderStyle)
+	sideInset := func(side Borders) uint16 {
+		if b.borders.Contains(side) {
+			return inset
+		}
+		return 0
+	}
+	leftInset := catatui.SatAdd(left, sideInset(BordersLeft))
+	topInset := catatui.SatAdd(top, sideInset(BordersTop))
+	rightInset := catatui.SatSub(right, sideInset(BordersRight))
+	bottomInset := catatui.SatSub(bottom, sideInset(BordersBottom))
+
+	if b.borders.Contains(BordersLeft) {
+		for y := topInset; y <= bottomInset; y++ {
+			b.drawBorderCell(buf, left, y, set.VerticalLeft)
 		}
 	}
 	if b.borders.Contains(BordersTop) {
-		for x := left; x <= right; x++ {
-			buf.Get(x, top).SetSymbol(set.HorizontalTop).SetStyle(b.borderStyle)
+		for x := leftInset; x <= rightInset; x++ {
+			b.drawBorderCell(buf, x, top, set.HorizontalTop)
+		}
+	}
+	if b.borders.Contains(BordersRight) {
+		for y := topInset; y <= bottomInset; y++ {
+			b.drawBorderCell(buf, right, y, set.VerticalRight)
 		}
 	}
 	if b.borders.Contains(BordersBottom) {
-		for x := left; x <= right; x++ {
-			buf.Get(x, bottom).SetSymbol(set.HorizontalBottom).SetStyle(b.borderStyle)
+		for x := leftInset; x <= rightInset; x++ {
+			b.drawBorderCell(buf, x, bottom, set.HorizontalBottom)
 		}
 	}
 
@@ -323,9 +464,15 @@ func (b Block) renderBorders(area catatui.Rect, buf *catatui.Buffer) {
 	}
 	for _, c := range corners {
 		if b.borders.Contains(c.need) {
-			buf.Get(c.x, c.y).SetSymbol(c.sym).SetStyle(b.borderStyle)
+			b.drawBorderCell(buf, c.x, c.y, c.sym)
 		}
 	}
+}
+
+// drawBorderCell puts one character of the border in place, merging it with
+// whatever is already there when the block asks for it.
+func (b Block) drawBorderCell(buf *catatui.Buffer, x, y uint16, symbol string) {
+	buf.Get(x, y).MergeSymbol(symbol, b.mergeBorders).SetStyle(b.borderStyle)
 }
 
 // titlesArea is the strip of one border row that titles may use, excluding the

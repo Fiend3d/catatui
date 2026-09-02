@@ -76,6 +76,11 @@ func Init(opts ...Option) (*catatui.Terminal, func(), error) {
 	for _, o := range opts {
 		o(&cfg)
 	}
+	// An inline viewport draws into the shell's own screen, a few rows at the
+	// cursor, so the alternate screen would defeat the point of it.
+	if cfg.hasVieport && cfg.viewport.Kind() == catatui.ViewportInline {
+		cfg.altScreen = false
+	}
 
 	state, err := enterRawMode(cfg.in, cfg.out)
 	if err != nil {
@@ -137,6 +142,12 @@ func Init(opts ...Option) (*catatui.Terminal, func(), error) {
 	// re-panics so the stack trace still reaches the user, now legibly.
 	installPanicRestore(restore)
 
+	// The viewport is placed at the cursor, which only the terminal knows the
+	// position of until catatui has drawn something.
+	if cfg.hasVieport && cfg.viewport.Kind() == catatui.ViewportInline {
+		seedInlineCursor(backend, cfg.in)
+	}
+
 	var terminal *catatui.Terminal
 	if cfg.hasVieport {
 		terminal, err = catatui.NewTerminalWithViewport(backend, cfg.viewport)
@@ -148,6 +159,32 @@ func Init(opts ...Option) (*catatui.Terminal, func(), error) {
 		return nil, nil, err
 	}
 	return terminal, restore, nil
+}
+
+// inlineCursorTimeout is how long Init waits for the terminal to report where
+// its cursor is. Terminals answer in microseconds; this only has to be long
+// enough not to trip over a busy one.
+const inlineCursorTimeout = 250 * time.Millisecond
+
+// seedInlineCursor tells the backend where the cursor really is, so that an
+// inline viewport lands under the shell prompt rather than at the top of the
+// screen.
+//
+// A terminal that does not answer is taken to have its cursor on the last row,
+// which is where a program run from a prompt almost always starts. The viewport
+// then scrolls the screen up to make room, exactly as it would have done for a
+// cursor genuinely at the bottom, so the failure mode is a viewport in the
+// right place on a terminal that had spare rows below the prompt.
+func seedInlineCursor(backend *Backend, in *os.File) {
+	pos, err := backend.QueryCursorPosition(in, inlineCursorTimeout)
+	if err != nil {
+		size, sizeErr := backend.Size()
+		if sizeErr != nil {
+			return
+		}
+		pos = catatui.Position{X: 0, Y: catatui.SatSub(size.Height, 1)}
+	}
+	backend.setTrackedCursor(pos)
 }
 
 var (

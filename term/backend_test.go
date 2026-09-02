@@ -2,8 +2,11 @@ package term
 
 import (
 	"bytes"
+	"errors"
+	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/Fiend3d/catatui"
 )
@@ -337,5 +340,74 @@ func TestBackendOf(t *testing.T) {
 	}
 	if got := BackendOf(other); got != nil {
 		t.Errorf("BackendOf on a TestBackend returned %v, want nil", got)
+	}
+}
+
+func TestParseCursorPositionReport(t *testing.T) {
+	cases := []struct {
+		in   string
+		want catatui.Position
+		ok   bool
+	}{
+		// CPR is 1-based, catatui's Position is 0-based.
+		{"\x1b[12;34R", catatui.Position{X: 33, Y: 11}, true},
+		// The DECXCPR form carries a leading question mark.
+		{"\x1b[?12;34R", catatui.Position{X: 33, Y: 11}, true},
+		// Keys typed before the reply are skipped over.
+		{"abc\x1b[1;1R", catatui.Position{X: 0, Y: 0}, true},
+		// Incomplete replies are not reported until the rest arrives.
+		{"\x1b[12;34", catatui.Position{}, false},
+		{"\x1b[12R", catatui.Position{}, false},
+		{"\x1b[", catatui.Position{}, false},
+		{"", catatui.Position{}, false},
+	}
+	for _, c := range cases {
+		got, ok := parseCursorPositionReport([]byte(c.in))
+		if ok != c.ok || got != c.want {
+			t.Errorf("%q: got %+v, %v; want %+v, %v", c.in, got, ok, c.want, c.ok)
+		}
+	}
+}
+
+func TestQueryCursorPosition(t *testing.T) {
+	reader, writer, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer reader.Close()
+	defer writer.Close()
+
+	var out bytes.Buffer
+	backend := NewBackend(&out)
+
+	// The terminal's reply arrives after the query has been written.
+	go func() {
+		_, _ = writer.WriteString("\x1b[7;3R")
+	}()
+
+	pos, err := backend.QueryCursorPosition(reader, time.Second)
+	if err != nil {
+		t.Fatalf("QueryCursorPosition: %v", err)
+	}
+	if want := (catatui.Position{X: 2, Y: 6}); pos != want {
+		t.Errorf("got %+v, want %+v", pos, want)
+	}
+	if !strings.Contains(out.String(), "\x1b[6n") {
+		t.Errorf("query did not write DSR 6, wrote %q", out.String())
+	}
+}
+
+func TestQueryCursorPositionTimesOut(t *testing.T) {
+	reader, writer, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer reader.Close()
+	defer writer.Close()
+
+	// A terminal that never answers must not hang the program.
+	backend := NewBackend(&bytes.Buffer{})
+	if _, err := backend.QueryCursorPosition(reader, 50*time.Millisecond); !errors.Is(err, ErrCursorPositionUnknown) {
+		t.Errorf("got %v, want ErrCursorPositionUnknown", err)
 	}
 }

@@ -255,3 +255,26 @@ func TestBlockTitleTruncatedInANarrowArea(t *testing.T) {
 		"└────┘",
 	))
 }
+
+func TestPaddingConstructors(t *testing.T) {
+	cases := []struct {
+		name string
+		got  Padding
+		want Padding
+	}{
+		{"horizontal", HorizontalPadding(1), NewPadding(1, 1, 0, 0)},
+		{"vertical", VerticalPadding(1), NewPadding(0, 0, 1, 1)},
+		{"uniform", UniformPadding(1), NewPadding(1, 1, 1, 1)},
+		{"proportional", ProportionalPadding(1), NewPadding(2, 2, 1, 1)},
+		{"symmetric", SymmetricPadding(1, 2), NewPadding(1, 1, 2, 2)},
+		{"left", LeftPadding(1), NewPadding(1, 0, 0, 0)},
+		{"right", RightPadding(1), NewPadding(0, 1, 0, 0)},
+		{"top", TopPadding(1), NewPadding(0, 0, 1, 0)},
+		{"bottom", BottomPadding(1), NewPadding(0, 0, 0, 1)},
+	}
+	for _, c := range cases {
+		if c.got != c.want {
+			t.Errorf("%s: got %+v, want %+v", c.name, c.got, c.want)
+		}
+	}
+}

@@ -58,13 +58,25 @@ Working and tested:
 | Terminal | `Widget`, `StatefulWidget`, `Frame`, double-buffered `Terminal`, `Viewport` |
 | Backends | `catatui/term` (Windows + Unix), `TestBackend` |
 | Terminal control | raw mode, alt screen, mouse, bracketed paste, focus, cursor shape |
-| Symbols | box-drawing, block, bar, braille and half-block characters |
-| Widgets | `Block` (borders, titles, padding), `Paragraph` (wrap, scroll, align) |
+| Symbols | box-drawing, block, bar, braille and half-block characters, border merging |
+| Widgets | the whole `ratatui-widgets` library, listed below |
 
-Not yet written: the rest of the widget library — `List`, `Table`, `Tabs`,
-`Gauge`, `Scrollbar`, `BarChart`, `Sparkline`, `Chart` and `Canvas`. Anything
-they would do can be done by drawing into `Frame.Buffer()` directly, which is
-how [nezumi](https://github.com/Fiend3d/nezumi) uses ratatui anyway.
+The widget library is complete: `Block` (borders, titles, padding, shadow,
+merged borders), `Paragraph`, `List`, `Table`, `Tabs`, `Gauge`, `LineGauge`,
+`Scrollbar`, `BarChart`, `Sparkline`, `Chart`, `Canvas` (with the line,
+rectangle, circle, points and world-map shapes), `Calendar`, `Clear`, `Fill`,
+`CatatuiLogo` and `RatatuiMascot`.
+
+Adjacent blocks can collapse their borders into single box-drawing characters,
+as ratatui does. `Block.MergeBorders` picks the strategy, `Cell.MergeSymbol`
+does the work, and `symbols.MergeStrategy` holds the rules:
+
+```go
+widgets.Bordered().Render(catatui.NewRect(0, 0, 5, 5), buf)
+widgets.Bordered().
+    MergeBorders(symbols.MergeExact).
+    Render(catatui.NewRect(4, 0, 5, 5), buf) // the shared edge becomes ┬ │ ┴
+```
 
 ## Fidelity
 
@@ -77,11 +89,16 @@ expectations written from scratch:
   `python tools/gen_layout_tests.py && gofmt -w layout_cases_test.go`.
 - **kasuari's quadrilateral test**, which reproduces the Rust solver's exact
   values for a mixed system of required, weighted and inequality constraints.
-- **ratatui's buffer, style, color, rect, block and paragraph tests**, ported by
-  hand — including the word-wrap cases, which pin down whitespace handling at
-  wrap points.
+- **ratatui's buffer, style, color, rect and widget tests**, ported by hand —
+  both the unit tests next to each widget and the integration tests under
+  `ratatui/tests`, including the word-wrap cases, which pin down whitespace
+  handling at wrap points.
 - **ratatui's `cell_width` cases**, which double as a conformance check that Go's
   `uniseg` agrees with Rust's `unicode-width`.
+- **ratatui's three border-merging golden files**, copied verbatim into
+  `widgets/testdata/block`. Each is the 43x1000 buffer ratatui's own test draws
+  for all 100 pairs of border types meeting four different ways, and catatui
+  reproduces all three exactly.
 
 The rules that matter most, and that the tests pin down:
 
@@ -118,10 +135,25 @@ The rules that matter most, and that the tests pin down:
 
 `github.com/rivo/uniseg`, `golang.org/x/sys`, `golang.org/x/term`. That is all.
 
+## Examples
+
+`examples/` holds one runnable program per widget, ported from ratatui's own
+widget examples, plus `hello`, which shows the layout solver, direct buffer
+drawing and an event loop that blocks when idle:
+
+```sh
+go run ./examples/hello
+go run ./examples/chart
+go run ./examples/collapsed-borders
+```
+
+See [examples/README.md](examples/README.md) for the full list and the keys
+each one responds to.
+
 ## Development
 
 ```sh
-go test ./...          # the full suite
+go test ./...          # the full suite, examples included
 go run ./examples/hello
 ```
 

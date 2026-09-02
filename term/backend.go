@@ -1,9 +1,11 @@
 package term
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
+	"time"
 
 	"github.com/Fiend3d/catatui"
 )
@@ -105,6 +107,120 @@ func (b *Backend) ShowCursor() error {
 // this backend.
 func (b *Backend) GetCursorPosition() (catatui.Position, error) {
 	return catatui.Position{X: b.w.curX, Y: b.w.curY}, nil
+}
+
+// QueryCursorPosition asks the terminal where the cursor is and reads the
+// reply from in, which must be the terminal's input.
+//
+// GetCursorPosition returns the position this backend has been tracking, which
+// is right once drawing has started but not before: at startup the cursor is
+// wherever the shell left it, and only the terminal knows where that is. An
+// inline viewport has to know, because it is placed at the cursor, so Init
+// queries the position once while nothing else is reading input.
+//
+// This must not be called while an EventReader is running: both read the same
+// input, and the reply would go to whichever got there first. Input that
+// arrives before the reply — keys typed before the program started — is
+// discarded, and a terminal that does not answer within timeout gives
+// ErrCursorPositionUnknown rather than blocking for ever.
+func (b *Backend) QueryCursorPosition(in *os.File, timeout time.Duration) (catatui.Position, error) {
+	// DSR 6: report the cursor position as ESC [ row ; col R.
+	b.w.csi("6n")
+	if err := b.Flush(); err != nil {
+		return catatui.Position{}, err
+	}
+
+	// One read at a time, so that once the reply has been parsed no read is
+	// left outstanding to swallow the user's first keystroke.
+	type result struct {
+		data []byte
+		err  error
+	}
+	wanted := make(chan struct{})
+	results := make(chan result, 1)
+	go func() {
+		buf := make([]byte, 64)
+		for range wanted {
+			n, err := in.Read(buf)
+			results <- result{append([]byte(nil), buf[:n]...), err}
+			if err != nil {
+				return
+			}
+		}
+	}()
+	defer close(wanted)
+
+	deadline := time.After(timeout)
+	var pending []byte
+	for {
+		select {
+		case wanted <- struct{}{}:
+		case <-deadline:
+			return catatui.Position{}, ErrCursorPositionUnknown
+		}
+
+		select {
+		case res := <-results:
+			pending = append(pending, res.data...)
+			if pos, ok := parseCursorPositionReport(pending); ok {
+				return pos, nil
+			}
+			if res.err != nil {
+				return catatui.Position{}, ErrCursorPositionUnknown
+			}
+		case <-deadline:
+			return catatui.Position{}, ErrCursorPositionUnknown
+		}
+	}
+}
+
+// ErrCursorPositionUnknown is returned by QueryCursorPosition when the terminal
+// does not report its cursor position in time.
+var ErrCursorPositionUnknown = errors.New("catatui/term: terminal did not report the cursor position")
+
+// parseCursorPositionReport looks for a CPR reply (ESC [ row ; col R, or the
+// DECXCPR form with a leading ?) anywhere in b, and converts its 1-based
+// coordinates to catatui's 0-based ones.
+func parseCursorPositionReport(b []byte) (catatui.Position, bool) {
+	for i := 0; i+1 < len(b); i++ {
+		if b[i] != 0x1b || b[i+1] != '[' {
+			continue
+		}
+		j := i + 2
+		if j < len(b) && b[j] == '?' {
+			j++
+		}
+		row, j, ok := parseUint16(b, j)
+		if !ok || j >= len(b) || b[j] != ';' {
+			continue
+		}
+		col, j, ok := parseUint16(b, j+1)
+		if !ok || j >= len(b) || b[j] != 'R' {
+			continue
+		}
+		return catatui.Position{X: catatui.SatSub(col, 1), Y: catatui.SatSub(row, 1)}, true
+	}
+	return catatui.Position{}, false
+}
+
+// parseUint16 reads decimal digits from b at i, saturating rather than
+// overflowing, and returns the position just past them.
+func parseUint16(b []byte, i int) (value uint16, next int, ok bool) {
+	start := i
+	for ; i < len(b) && b[i] >= '0' && b[i] <= '9'; i++ {
+		value = catatui.SatAdd(catatui.SatMul(value, 10), uint16(b[i]-'0'))
+	}
+	return value, i, i > start
+}
+
+// setTrackedCursor records where the cursor is without moving it, which is how
+// Init hands the position it queried to the terminal that is about to place an
+// inline viewport there.
+func (b *Backend) setTrackedCursor(p catatui.Position) {
+	b.w.curX, b.w.curY = p.X, p.Y
+	// The position is right, but the next move is still written in full: the
+	// cursor may since have moved for reasons this writer cannot see.
+	b.w.invalidateCursor()
 }
 
 // SetCursorPosition moves the cursor.

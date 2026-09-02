@@ -1,6 +1,9 @@
 package catatui
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 // textWidget draws a string at the top left of its area, for tests that need
 // something simple to render.
@@ -264,5 +267,59 @@ func TestTerminalWithFixedViewport(t *testing.T) {
 	_ = term.Draw(func(f *Frame) { area = f.Area() })
 	if want := NewRect(2, 1, 5, 2); area != want {
 		t.Errorf("a fixed viewport resized to %+v, want %+v", area, want)
+	}
+}
+
+func TestTerminalInlineViewportSitsAtTheCursor(t *testing.T) {
+	backend := NewTestBackend(20, 10)
+	if err := backend.SetCursorPosition(Position{X: 5, Y: 4}); err != nil {
+		t.Fatal(err)
+	}
+
+	terminal, err := NewTerminalWithViewport(backend, InlineViewport(3))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// The viewport starts on the cursor's row, not at the top of the screen,
+	// which is what keeps an inline program below the shell prompt.
+	if got, want := terminal.ViewportArea(), NewRect(0, 4, 20, 3); got != want {
+		t.Errorf("viewport area = %+v, want %+v", got, want)
+	}
+	if got := len(backend.Scrollback()); got != 0 {
+		t.Errorf("scrolled %d lines, want 0: there was room below the cursor", got)
+	}
+
+	err = terminal.Draw(func(f *Frame) {
+		f.RenderWidget(LineFromString("inline"), f.Area())
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := backend.Buffer().String(); !strings.Contains(got, "inline") {
+		t.Errorf("nothing drawn:\n%s", got)
+	}
+	if got := backend.Buffer().Get(0, 4).GetSymbol(); got != "i" {
+		t.Errorf("row 4 starts with %q, want the frame to start there", got)
+	}
+}
+
+func TestTerminalInlineViewportScrollsWhenItDoesNotFit(t *testing.T) {
+	backend := NewTestBackend(20, 10)
+	// The cursor is on the last row, so the only way to make room for three
+	// rows is to push the existing lines up.
+	if err := backend.SetCursorPosition(Position{Y: 9}); err != nil {
+		t.Fatal(err)
+	}
+
+	terminal, err := NewTerminalWithViewport(backend, InlineViewport(3))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, want := terminal.ViewportArea(), NewRect(0, 7, 20, 3); got != want {
+		t.Errorf("viewport area = %+v, want %+v", got, want)
+	}
+	if got, want := len(backend.Scrollback()), 2; got != want {
+		t.Errorf("scrolled %d lines, want %d", got, want)
 	}
 }
