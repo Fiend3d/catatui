@@ -16,8 +16,9 @@ const visibleOnBlank = ModifierReversed | ModifierUnderlined |
 	ModifierSlowBlink | ModifierRapidBlink | ModifierCrossedOut
 
 // variationSelector16 requests emoji presentation. Terminals are unreliable
-// about clearing the trailing column of such a sequence, so those get explicit
-// clears where plain CJK does not.
+// about clearing the trailing column of such a sequence, so one being replaced
+// by a narrow character gets an explicit clear where plain CJK on a default
+// background does not.
 const variationSelector16 = '️'
 
 // trailingState tracks a run of columns that a wide character used to cover and
@@ -110,17 +111,27 @@ func (d *bufferDiff) nextCell() (PositionedCell, bool) {
 		previousWidth := int(previous.Width())
 
 		switch {
-		case width > 1 && strings.ContainsRune(current.GetSymbol(), variationSelector16):
-			// Emoji presentation sequence: clear its trailing columns
-			// explicitly, since terminals do not do it reliably.
-			d.trailing = &trailingState{nextIndex: i + 1, end: min(i+width, n)}
 		case width > 1:
+			// A wide character covers its own trailing columns, so they are not
+			// written. ratatui-v0.30.2 makes an exception for emoji
+			// presentation sequences and blanks theirs explicitly; that is a
+			// deviation taken here, because the blank lands on the column the
+			// terminal has just shaped the second half of the glyph into. A ZWJ
+			// sequence such as the rainbow flag loses its ligature and falls
+			// back to the first emoji in it, until some later frame rewrites
+			// the leading cell without touching the trailing one and it
+			// silently repairs itself. Residue from a sequence being replaced
+			// is the case below, which is where the clearing belongs.
 			d.pos += width - 1
 		case previousWidth > width &&
-			(previous.Bg != ColorReset || previous.Modifier.Intersects(visibleOnBlank)):
-			// A wide character with a style that shows on blank cells is being
-			// replaced by a narrow one. Force-rewrite the columns it used to
-			// cover, whether or not the buffer thinks they changed.
+			(previous.Bg != ColorReset ||
+				previous.Modifier.Intersects(visibleOnBlank) ||
+				strings.ContainsRune(previous.GetSymbol(), variationSelector16)):
+			// A wide character that leaves something behind is being replaced
+			// by a narrow one. Force-rewrite the columns it used to cover,
+			// whether or not the buffer thinks they changed. An emoji
+			// presentation sequence counts even on a default background, since
+			// terminals do not clear its trailing column reliably.
 			d.trailing = &trailingState{nextIndex: i + 1, end: i + previousWidth, force: true}
 		}
 

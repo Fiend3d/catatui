@@ -6,7 +6,11 @@
 
 package catatui
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/rivo/uniseg"
+)
 
 func TestCellWidth(t *testing.T) {
 	cases := []struct {
@@ -207,5 +211,70 @@ func TestAllGraphemesDoesNotAllocate(t *testing.T) {
 	})
 	if got != 0 {
 		t.Errorf("AllGraphemes allocated %.1f times per run, want 0", got)
+	}
+}
+
+// TestClusterWidthCapsAClusterAtItsWidestRune pins the width policy that keeps
+// Indic text from being drawn full of holes.
+//
+// Unicode scores a spacing combining mark one column, so uniseg measures a
+// consonant carrying one as two. A terminal shapes the pair into a single glyph
+// and draws it in one cell, so the second column is left over: text comes out
+// gappy and a background painted across it has a hole beside every such
+// consonant. A cluster is one glyph and takes its base character's advance.
+func TestClusterWidthCapsAClusterAtItsWidestRune(t *testing.T) {
+	for _, c := range []struct {
+		text string
+		want int
+	}{
+		// Capped: a one-column base carrying a spacing mark.
+		{"हि", 1},  // Devanagari vowel sign I
+		{"पा", 1},  // Devanagari vowel sign AA
+		{"री", 1},  // Devanagari vowel sign II
+		{"मि", 1},  // Tamil vowel sign I
+		{"சோ", 1},  // Tamil vowel sign O
+		{"বাং", 1}, // Bengali vowel sign AA plus anusvara
+		{"हिन्दी", 3},
+		{"தமிழ்", 3},
+
+		// Untouched: a rune as wide as the cluster is present in each.
+		{"日", 2},
+		{"日本語", 6},
+		{"한글", 4},
+		{"ｱ", 1},
+		{"ア", 2},
+		{"ﾊﾞ", 2}, // halfwidth katakana plus a sound mark, drawn in two columns
+		{"👨\u200d👩\u200d👧\u200d👦", 2},
+		{"🏳\ufe0f\u200d🌈", 2}, // first rune is one column; 🌈 keeps the cluster at two
+		{"🇯🇵", 2},
+		{"á", 1},
+		{"a\u0301", 1},
+		{"e", 1},
+	} {
+		if got := StringWidth(c.text); got != c.want {
+			t.Errorf("StringWidth(%q) = %d, want %d", c.text, got, c.want)
+		}
+	}
+}
+
+// TestGraphemeWidthMatchesCellWidth keeps the exported shortcut honest: a
+// caller passing uniseg's width must get the same answer the Buffer would
+// measure for itself.
+func TestGraphemeWidthMatchesCellWidth(t *testing.T) {
+	for _, in := range []string{
+		"हिन्दी परीक्षण", "தமிழ் சோதனை", "বাংলা", "日本語 abc", "ﾊﾞﾋﾟ",
+		"👨\u200d👩\u200d👧\u200d👦🏳\ufe0f\u200d🌈", "한글", "ก็", "a\u0301",
+	} {
+		state := -1
+		rest := in
+		for len(rest) > 0 {
+			var cluster string
+			var w int
+			cluster, rest, w, state = uniseg.FirstGraphemeClusterInString(rest, state)
+			if got, want := GraphemeWidth(cluster, w), int(cellWidth(cluster)); got != want {
+				t.Errorf("%q: GraphemeWidth(%q, %d) = %d, cellWidth = %d",
+					in, cluster, w, got, want)
+			}
+		}
 	}
 }
