@@ -221,6 +221,45 @@ way. `backend.Resize(w, h)` simulates a terminal resize; the next `Draw` picks
 it up. `backend.Scrollback()` returns lines pushed off the top by
 `Terminal.InsertBefore`, for testing inline-viewport programs.
 
+## Examples that double as documentation
+
+A Go example function is a test and a doc entry at once: `go test` runs it and
+compares its output against the `// Output:` comment, and pkg.go.dev shows it
+under the type it names. catatui uses them for the handful of behaviours that
+are easier to see than to describe.
+
+Buffers print one row per line, padded to the buffer's width, so trim the
+padding on the right before comparing — trailing spaces in an `// Output:`
+block are invisible and easy to lose.
+
+```go
+package widgets_test
+
+import (
+	"fmt"
+	"strings"
+
+	"github.com/Fiend3d/catatui"
+	"github.com/Fiend3d/catatui/widgets"
+)
+
+func ExampleBlock() {
+	buf := catatui.NewBuffer(catatui.NewRect(0, 0, 16, 3))
+	widgets.Bordered().Title("Files").Render(buf.Area, buf)
+
+	for _, row := range strings.Split(buf.String(), "\n") {
+		fmt.Println(strings.TrimRight(row, " "))
+	}
+	// Output:
+	// ┌Files─────────┐
+	// │              │
+	// └──────────────┘
+}
+```
+
+A symbol wider than one cell is written once in that string, and the cells it
+covers are stepped over, so a printed row is as wide as the terminal row.
+
 ## Running the tests
 
 Widget tests in this repository sit beside the widgets and use exactly these

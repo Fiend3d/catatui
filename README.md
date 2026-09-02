@@ -131,6 +131,28 @@ The rules that matter most, and that the tests pin down:
    hash maps where the pivot choice is free; Go randomizes map order per run,
    which would make a degenerate layout come out differently on each launch.
 
+## Documentation
+
+The API reference is on [pkg.go.dev]. The guides under [docs/] cover each area
+in depth, and are meant to be read rather than searched:
+
+| Guide | Covers |
+|---|---|
+| [Rendering](docs/concepts/rendering.md) | The immediate-mode cycle, `Frame`, `Buffer`, `Cell`, wide graphemes, the diff, writing a widget |
+| [Layout](docs/concepts/layout.md) | `Rect`, the six constraints, seven flex modes, spacing, nesting, recipes |
+| [Widgets](docs/concepts/widgets.md) | The catalogue, builder conventions, blocks and inner areas, widget state |
+| [Text and style](docs/concepts/text-and-style.md) | `Color`, `Modifier`, `Style` patching, `Span`/`Line`/`Text`, how styles layer |
+| [Events](docs/concepts/events.md) | `EventReader`, the `Event` kinds, the drain-the-queue loop, app structure |
+| [Terminal](docs/concepts/terminal.md) | `term.Init` and its options, raw mode, viewports, `InsertBefore`, panic recovery |
+| [Testing](docs/concepts/testing.md) | Rendering into a buffer, `AssertBuffer`, driving an app through `TestBackend` |
+
+Every whole-file Go snippet in the README and the guides is compiled by
+`tools/check_doc_snippets.py`, so the documentation cannot drift from the API
+without the check failing.
+
+[pkg.go.dev]: https://pkg.go.dev/github.com/Fiend3d/catatui
+[docs/]: docs
+
 ## Dependencies
 
 `github.com/rivo/uniseg`, `golang.org/x/sys`, `golang.org/x/term`. That is all.
@@ -153,7 +175,8 @@ each one responds to.
 ## Development
 
 ```sh
-go test ./...          # the full suite, examples included
+go test ./...                          # the full suite, examples included
+python tools/check_doc_snippets.py     # compile the code in the docs
 go run ./examples/hello
 ```
 

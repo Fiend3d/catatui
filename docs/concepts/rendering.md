@@ -5,7 +5,7 @@ immediate-mode model, the path from a `Frame` through a `Buffer` and a diff to
 the backend, what a `Cell` is, how wide characters occupy several cells, and the
 two widget interfaces. It is for anyone writing widgets or drawing into the
 buffer by hand. If you only compose the built-in widgets, the first two sections
-are enough.
+are enough, and [widgets](widgets.md) covers the library itself.
 
 ## The immediate-mode model
 

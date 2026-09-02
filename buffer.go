@@ -255,14 +255,23 @@ type PositionedCell struct {
 
 // String renders the buffer as one string per row, joined by newlines, with all
 // styling dropped. It is meant for test failure messages.
+//
+// A symbol wider than one cell is written once, and the cells it covers are
+// stepped over, so a row of the string is as wide as the row of the terminal
+// rather than wider.
 func (b *Buffer) String() string {
 	var sb strings.Builder
 	for y := b.Area.Top(); y < b.Area.Bottom(); y++ {
 		if y > b.Area.Top() {
 			sb.WriteByte('\n')
 		}
+		skip := uint16(0)
 		for x := b.Area.Left(); x < b.Area.Right(); x++ {
-			sb.WriteString(b.Get(x, y).GetSymbol())
+			cell := b.Get(x, y)
+			if skip == 0 {
+				sb.WriteString(cell.GetSymbol())
+			}
+			skip = SatSub(MaxU16(skip, cell.Width()), 1)
 		}
 	}
 	return sb.String()

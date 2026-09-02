@@ -78,13 +78,13 @@ There are three kinds.
 | Constructor | Behaviour |
 |---|---|
 | `catatui.FullscreenViewport()` | The whole terminal. Resizes with it. The default. |
-| `catatui.InlineViewport(height)` | `height` lines at the bottom of the terminal, below the existing output. Resizes with the terminal's width. |
+| `catatui.InlineViewport(height)` | `height` lines at the cursor, below the existing output. Resizes with the terminal's width. |
 | `catatui.FixedViewport(area)` | An explicit `Rect`. Never resizes. |
 
 An inline viewport is positioned at the cursor when `Init` runs; if there is not
-enough room below it, the terminal is scrolled up to make room. Combine it with
-`WithoutAlternateScreen()`, since the point of an inline viewport is to coexist
-with normal output.
+enough room below it, the terminal is scrolled up to make room. It implies
+`WithoutAlternateScreen()`, since the point of drawing inline is to coexist with
+normal output.
 
 ```go
 package main
@@ -95,12 +95,21 @@ import (
 )
 
 func inline() (*catatui.Terminal, func(), error) {
-	return term.Init(
-		term.WithoutAlternateScreen(),
-		term.WithViewport(catatui.InlineViewport(5)),
-	)
+	return term.Init(term.WithViewport(catatui.InlineViewport(5)))
 }
 ```
+
+Finding the cursor takes asking the terminal, because until catatui has drawn
+something it has no idea where the shell left it. `Init` sends a cursor position
+request and reads the reply, which is why an `EventReader` must not be started
+until after it returns: the two would be reading the same input, and the reply
+would go to whichever got there first. A terminal that does not answer within
+250ms is assumed to have its cursor on the last row, which is where a program
+run from a prompt almost always starts.
+
+`term.Backend.GetCursorPosition` does not query at all — it returns the position
+the backend has been tracking, which is accurate once drawing has started and
+costs nothing. `QueryCursorPosition` is the one that asks.
 
 `Terminal.ViewportArea()` returns the current region, which is what
 `Frame.Area()` reports inside `Draw`. A fixed viewport is the one case where

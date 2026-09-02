@@ -1,25 +1,3 @@
-// Package term is catatui's terminal driver: the equivalent of the crossterm
-// crate that ratatui uses.
-//
-// It provides raw mode, the alternate screen, mouse and paste reporting, a
-// VT/ANSI writer, an input parser, and a Backend implementation that catatui's
-// Terminal can drive.
-//
-//	terminal, restore, err := term.Init(term.WithMouse())
-//	if err != nil {
-//		return err
-//	}
-//	defer restore()
-//
-//	events := term.NewEventReader(os.Stdin, os.Stdout)
-//	defer events.Close()
-//	for {
-//		terminal.Draw(func(f *catatui.Frame) { ... })
-//		ev, ok := <-events.Events()
-//		if !ok || ev.IsRune('q') {
-//			return nil
-//		}
-//	}
 package term
 
 import (

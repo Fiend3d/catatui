@@ -1,7 +1,6 @@
-// Package widgets holds catatui's widget library: the ready-made things you
-// render into a Frame.
-//
-// Port of ratatui-widgets @ ratatui-v0.30.2
+// Port of ratatui-widgets/src/block.rs, block/padding.rs and borders.rs
+// @ ratatui-v0.30.2
+
 package widgets
 
 import (

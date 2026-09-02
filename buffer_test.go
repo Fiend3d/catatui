@@ -387,3 +387,26 @@ func TestDiffClearsBehindAReplacedEmojiSequence(t *testing.T) {
 		t.Error("the column the flag used to cover was never rewritten")
 	}
 }
+
+func TestBufferStringStepsOverWideSymbols(t *testing.T) {
+	cases := []struct {
+		name    string
+		content string
+		want    string
+	}{
+		// Each wide cluster covers two cells, but is written once, so the
+		// string is as wide as the terminal row rather than twice as wide.
+		{"wide", "日本", "日本 "},
+		{"wide then narrow", "日x", "日x  "},
+		{"narrow", "abc", "abc  "},
+		// The last cluster does not fit and is dropped, not clipped.
+		{"wide overflow", "日本語", "日本 "},
+	}
+	for _, c := range cases {
+		buf := NewBuffer(NewRect(0, 0, 5, 1))
+		buf.SetString(0, 0, c.content, NewStyle())
+		if got := buf.String(); got != c.want {
+			t.Errorf("%s: drew %q, want %q", c.name, got, c.want)
+		}
+	}
+}
