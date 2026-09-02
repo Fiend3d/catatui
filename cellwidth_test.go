@@ -159,3 +159,53 @@ func TestStringWidthAgreesWithSpanWidth(t *testing.T) {
 		}
 	}
 }
+
+// TestGraphemeIterationAgreesWithCellWidth pins down the shortcut AllGraphemes
+// takes: it trusts the width uniseg reports while segmenting instead of calling
+// cellWidth, which would segment the cluster a second time. The two must agree
+// on every cluster, or rows drawn through the iterator would drift from rows
+// measured with cellWidth.
+func TestGraphemeIterationAgreesWithCellWidth(t *testing.T) {
+	inputs := []string{
+		"", "a", "hello world", "\t", "\x00\x01\x1f\x7f",
+		"日本語", "한글", "ｱｲｳｴｵ", "アイウエオ",
+		"ﾊﾞﾋﾟ", // halfwidth katakana with sound marks
+		"é", "a\u0301", "हिन्दी", "ก็",
+		"👨\u200d👩\u200d👧\u200d👦", "👍🏽", "☺️", "☺",
+		"mixed 日本 abc\tえ 👍 end",
+	}
+	for _, in := range inputs {
+		var viaIterator, viaCellWidth int
+		for g := range AllGraphemes(in) {
+			viaIterator += int(g.Width)
+			if got := cellWidth(g.Symbol); got != g.Width {
+				t.Errorf("%q: cluster %q width %d from the iterator, %d from cellWidth",
+					in, g.Symbol, g.Width, got)
+			}
+		}
+		for _, g := range Graphemes(in) {
+			viaCellWidth += int(g.Width)
+		}
+		if viaIterator != viaCellWidth {
+			t.Errorf("%q: iterator total %d, slice total %d", in, viaIterator, viaCellWidth)
+		}
+		if got := StringWidth(in); got != viaIterator {
+			t.Errorf("%q: StringWidth %d, iterator total %d", in, got, viaIterator)
+		}
+	}
+}
+
+// TestAllGraphemesDoesNotAllocate is the reason the iterator exists.
+func TestAllGraphemesDoesNotAllocate(t *testing.T) {
+	s := "  static int sqlite3BtreeCursorHasMoved(BtCursor *pCur, int flags){"
+	got := testing.AllocsPerRun(100, func() {
+		var w int
+		for g := range AllGraphemes(s) {
+			w += int(g.Width)
+		}
+		_ = w
+	})
+	if got != 0 {
+		t.Errorf("AllGraphemes allocated %.1f times per run, want 0", got)
+	}
+}

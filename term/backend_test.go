@@ -73,16 +73,41 @@ func TestBackendEmitsCursorMoveOnGap(t *testing.T) {
 	}
 }
 
-// TestBackendAdvancesPastWideCells checks that printing a two-column glyph
-// leaves the writer's idea of the cursor in the right place; if it did not, the
-// next cell would emit a needless move, or worse, the wrong one.
-func TestBackendAdvancesPastWideCells(t *testing.T) {
+// TestBackendReanchorsAfterANonASCIICell is the rule that keeps complex scripts
+// from corrupting a row.
+//
+// How far the cursor moves after printing a non-ASCII cluster is the terminal's
+// decision, not Unicode's: Windows Terminal shapes Devanagari, Tamil, Thai and
+// Arabic to widths unicode-width does not predict. Carrying a guessed position
+// forward desynchronises the writer from the real cursor, and every later cell
+// in the row is then written to the wrong column, leaving stale glyphs on
+// screen. So the position is dropped after any non-ASCII symbol and the next
+// cell re-anchors, even though it is adjacent in the buffer.
+func TestBackendReanchorsAfterANonASCIICell(t *testing.T) {
 	got := render(t, []catatui.PositionedCell{
 		{X: 0, Y: 0, Cell: catatui.NewCell("あ")},
 		{X: 2, Y: 0, Cell: catatui.NewCell("b")},
 	})
+	if n := strings.Count(got, "H"); n != 2 {
+		t.Errorf("a cell after a wide glyph emitted %d moves, want 2: %q", n, got)
+	}
+	// And it must re-anchor to the right column, not merely to some column.
+	if !strings.Contains(got, "[1;3H") {
+		t.Errorf("expected a move to row 1 column 3, got %q", got)
+	}
+}
+
+// TestBackendKeepsTheFastPathOnASCII guards the other half of the trade: the
+// re-anchoring above must not cost anything on ordinary text, which is what a
+// full redraw is almost entirely made of.
+func TestBackendKeepsTheFastPathOnASCII(t *testing.T) {
+	cells := make([]catatui.PositionedCell, 0, 40)
+	for i := uint16(0); i < 40; i++ {
+		cells = append(cells, catatui.PositionedCell{X: i, Y: 0, Cell: catatui.NewCell("x")})
+	}
+	got := render(t, cells)
 	if n := strings.Count(got, "H"); n != 1 {
-		t.Errorf("a wide cell followed by its neighbour emitted %d moves, want 1: %q", n, got)
+		t.Errorf("40 adjacent ASCII cells emitted %d cursor moves, want 1: %q", n, got)
 	}
 }
 

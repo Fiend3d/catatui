@@ -1,9 +1,6 @@
 package term
 
-import (
-	"github.com/Fiend3d/catatui"
-	"github.com/rivo/uniseg"
-)
+import "github.com/Fiend3d/catatui"
 
 // EventKind distinguishes the kinds of terminal event.
 type EventKind uint8
@@ -167,10 +164,15 @@ func (e Event) IsCtrl(r rune) bool {
 	return e.Kind == EventKey && e.Key == KeyRune && e.Rune == r && e.Mods.Contains(ModCtrl)
 }
 
-// cellColumns is the number of columns a symbol occupies on screen. The backend
-// uses it to keep its idea of the cursor in step with what it has printed.
+// cellColumns is the number of columns a symbol occupies on screen.
+//
+// It measures with catatui.StringWidth rather than uniseg directly: the Buffer
+// decides how many columns a cell covers with that function, and a second,
+// disagreeing width implementation here is exactly what the library exists to
+// avoid. The two differ on halfwidth katakana sound marks and control
+// characters.
 func cellColumns(s string) uint16 {
-	w := uniseg.StringWidth(s)
+	w := catatui.StringWidth(s)
 	if w < 0 {
 		return 0
 	}

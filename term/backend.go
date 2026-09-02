@@ -40,6 +40,21 @@ func NewBackend(out io.Writer) *Backend {
 // The cells arrive in row-major order but are not necessarily adjacent, so the
 // writer emits a cursor move only when there is a gap, and a colour change only
 // when the style actually differs from the previous cell.
+//
+// Skipping the cursor move depends on knowing how far printing a symbol moved
+// the cursor, and that is only knowable for ASCII. Every terminal advances one
+// column for a printable ASCII byte; for anything else the terminal's shaping
+// engine decides, and it does not have to agree with Unicode's tables. Windows
+// Terminal in particular shapes Devanagari, Bengali, Tamil, Telugu, Thai and
+// Arabic into cluster widths that unicode-width does not predict. Guessing
+// wrong desynchronises the writer from the real cursor, and every later cell in
+// the row lands in the wrong column, which leaves stale glyphs behind wherever
+// the row was supposed to be overwritten.
+//
+// So the cursor is only tracked through ASCII. After any other symbol the
+// position is forgotten and the next cell re-anchors with an absolute move.
+// That costs one cursor move per non-ASCII cell and nothing at all on ASCII
+// text, which is the case that has to stay fast.
 func (b *Backend) Draw(cells []catatui.PositionedCell) error {
 	for _, pc := range cells {
 		b.w.moveTo(pc.X, pc.Y)
@@ -47,7 +62,11 @@ func (b *Backend) Draw(cells []catatui.PositionedCell) error {
 		b.w.setStyle(orReset(c.Fg), orReset(c.Bg), orReset(c.UnderlineColor), c.Modifier)
 		symbol := c.GetSymbol()
 		b.w.w.WriteString(symbol)
-		b.w.advance(max(cellColumns(symbol), 1))
+		if len(symbol) == 1 {
+			b.w.advance(1)
+		} else {
+			b.w.invalidateCursor()
+		}
 	}
 	return nil
 }

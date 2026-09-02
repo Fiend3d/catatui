@@ -151,9 +151,19 @@ func (b *Buffer) DiffSeq(next *Buffer) iter.Seq[PositionedCell] {
 //
 // The two buffers must share an X, Y and Width; only the height may differ.
 func (b *Buffer) Diff(next *Buffer) []PositionedCell {
-	var out []PositionedCell
+	return b.DiffInto(nil, next)
+}
+
+// DiffInto is Diff appending into dst, so a caller that diffs every frame can
+// reuse one slice instead of allocating a new one each time. Pass dst[:0] to
+// reuse the storage; the returned slice may have been reallocated if it grew.
+//
+// The Terminal draws through here: on a full-screen redraw the update list is
+// as large as the screen, and allocating that per frame was the single biggest
+// source of garbage in a scrolling application.
+func (b *Buffer) DiffInto(dst []PositionedCell, next *Buffer) []PositionedCell {
 	for pc := range b.DiffSeq(next) {
-		out = append(out, pc)
+		dst = append(dst, pc)
 	}
-	return out
+	return dst
 }

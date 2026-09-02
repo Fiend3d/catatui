@@ -3,6 +3,7 @@
 package catatui
 
 import (
+	"iter"
 	"strings"
 
 	"github.com/rivo/uniseg"
@@ -56,19 +57,58 @@ type Grapheme struct {
 // will draw.
 func Graphemes(s string) []Grapheme {
 	out := make([]Grapheme, 0, len(s))
-	g := uniseg.NewGraphemes(s)
-	for g.Next() {
-		c := g.Str()
-		if containsControl(c) {
-			continue
-		}
-		w := cellWidth(c)
-		if w == 0 {
-			continue
-		}
-		out = append(out, Grapheme{Symbol: c, Width: w})
+	for g := range AllGraphemes(s) {
+		out = append(out, g)
 	}
 	return out
+}
+
+// AllGraphemes is Graphemes as an iterator, which costs no allocation at all.
+//
+// Prefer it on any path that runs per frame. Graphemes has to build a slice
+// whose size is proportional to the string, and every drawn row would pay for
+// one; the buffer's own drawing goes through here for that reason.
+func AllGraphemes(s string) iter.Seq[Grapheme] {
+	return func(yield func(Grapheme) bool) {
+		state := -1
+		for len(s) > 0 {
+			var cluster string
+			var w int
+			cluster, s, w, state = uniseg.FirstGraphemeClusterInString(s, state)
+			g, ok := drawable(cluster, w)
+			if !ok {
+				continue
+			}
+			if !yield(g) {
+				return
+			}
+		}
+	}
+}
+
+// drawable applies the same filter and width correction as cellWidth, given a
+// cluster and the width uniseg already measured for it while segmenting.
+//
+// Reusing that width is what makes the iterator cheap: cellWidth would call
+// uniseg.StringWidth, which segments the cluster a second time. For a single
+// cluster the two produce the same number by construction, and
+// TestGraphemeIterationAgreesWithCellWidth pins that down.
+func drawable(cluster string, unisegWidth int) (Grapheme, bool) {
+	// A single byte is ASCII, so it is one column unless it is a control.
+	if len(cluster) == 1 {
+		if isControlRune(rune(cluster[0])) {
+			return Grapheme{}, false
+		}
+		return Grapheme{Symbol: cluster, Width: 1}, true
+	}
+	if containsControl(cluster) {
+		return Grapheme{}, false
+	}
+	w := SatAdd(uint16(min(unisegWidth, maxU16)), countHalfwidthSoundMarks(cluster))
+	if w == 0 {
+		return Grapheme{}, false
+	}
+	return Grapheme{Symbol: cluster, Width: w}, true
 }
 
 // containsControl reports whether s holds a Unicode control character. It
@@ -100,7 +140,7 @@ func isControlRune(r rune) bool {
 // port.
 func StringWidth(s string) int {
 	var w int
-	for _, g := range Graphemes(s) {
+	for g := range AllGraphemes(s) {
 		w += int(g.Width)
 	}
 	return w

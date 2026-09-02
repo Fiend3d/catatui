@@ -134,7 +134,7 @@ func (b *Buffer) SetString(x, y uint16, s string, style Style) (nextX, nextY uin
 //     to the style being drawn.
 func (b *Buffer) SetStringn(x, y uint16, s string, maxWidth uint16, style Style) (nextX, nextY uint16) {
 	remaining := MinU16(SatSub(b.Area.Right(), x), maxWidth)
-	for _, g := range Graphemes(s) {
+	for g := range AllGraphemes(s) {
 		// A cluster that does not fit ends the draw entirely, rather than
 		// being truncated into a partial glyph.
 		if g.Width > remaining {

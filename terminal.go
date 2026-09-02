@@ -105,6 +105,10 @@ type Terminal struct {
 	lastKnownAre Rect
 	lastCursor   Position
 	frameCount   uint64
+
+	// updates is the diff scratch, reused across frames so a redraw does not
+	// allocate a screen-sized slice every time.
+	updates []PositionedCell
 }
 
 // NewTerminal returns a Terminal drawing to the whole of the given backend.
@@ -239,7 +243,9 @@ func (t *Terminal) applyBuffer(cursor *Position) error {
 func (t *Terminal) flushDiff() error {
 	previous := t.buffers[1-t.current]
 	current := t.buffers[t.current]
-	updates := previous.Diff(current)
+	// Reuse the update slice across frames; the backend does not retain it.
+	t.updates = previous.DiffInto(t.updates[:0], current)
+	updates := t.updates
 	if len(updates) > 0 {
 		last := updates[len(updates)-1]
 		t.lastCursor = Position{X: last.X, Y: last.Y}
