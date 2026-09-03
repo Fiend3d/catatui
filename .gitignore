@@ -7,6 +7,9 @@
 *.out
 /dist/
 
+# Written by the tracing example when it is run.
+/tracing.log
+
 # Scratch programs used to verify output; never part of the module.
 /shapechk/
 /preview/
