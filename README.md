@@ -170,11 +170,15 @@ own widget examples. `examples/apps/` holds the whole applications, the split
 following ratatui's own layout: the original tui-rs `demo`, the `flex` layout
 explorer, a `popup`, a `todo-list`, a `user-input` box, an `inline` viewport
 writing to the scrollback, an `input-form`, a `custom-widget` driven by the
-mouse, a `release-header` banner, `mouse-drawing`, `constraints`,
-`calendar-explorer`, `color-explorer`, `canvas`, `chart`, `table`, `gauge`,
-`scrollbar`, `panic`, `modifiers`, `weather`, `tracing`, and `hello`, which
-shows the layout solver, direct buffer drawing and an event loop that blocks
-when idle:
+mouse, a `release-header` banner, `mouse-drawing`, `constraints`, a
+`constraint-explorer` that lays the same constraints out under every `Flex` mode
+at once, `calendar-explorer`, `color-explorer`, `colors-rgb`, `canvas`, `chart`,
+`table`, `gauge`, `scrollbar`, `panic`, `modifiers`, `weather`, `tracing`, a
+`hyperlink`, a `widget-ref-container`, an `advanced-widget-impl` on the shapes a
+widget can take, an `async-github` fetching in the background, a
+`volatility-surface` turning a 3D wireframe on a braille canvas, `minimal`, and
+`hello`, which shows the layout solver, direct buffer drawing and an event loop
+that blocks when idle:
 
 ```sh
 go run ./examples/apps/demo
