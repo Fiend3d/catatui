@@ -83,7 +83,7 @@ two hand-picked RGB values usually do not.
 
 These are 24-bit colours. A terminal without true colour support approximates
 them, so where that matters keep an indexed fallback beside them, as the
-[flex example](../../examples/flex) does.
+[flex example](../../examples/apps/flex) does.
 
 ## Modifier
 

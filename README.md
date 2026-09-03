@@ -30,7 +30,7 @@ terminal.Draw(func(f *catatui.Frame) {
 })
 ```
 
-Run `go run ./examples/hello` for a working application.
+Run `go run ./examples/apps/hello` for a working application.
 
 ## Why
 
@@ -165,16 +165,17 @@ uniseg is MIT; the two `golang.org/x` modules are BSD-3-Clause.
 
 ## Examples
 
-`examples/` holds one runnable program per widget, ported from ratatui's own
-widget examples, alongside ported applications — the original tui-rs `demo`, the
-`flex` layout explorer, a `popup`, a `todo-list`, a `user-input` box and an
-`inline` viewport writing to the scrollback — and `hello`, which shows the
-layout solver, direct buffer drawing and an event loop that blocks when idle:
+`examples/widgets/` holds one runnable program per widget, ported from ratatui's
+own widget examples. `examples/apps/` holds the whole applications, the split
+following ratatui's own layout: the original tui-rs `demo`, the `flex` layout
+explorer, a `popup`, a `todo-list`, a `user-input` box, an `inline` viewport
+writing to the scrollback, and `hello`, which shows the layout solver, direct
+buffer drawing and an event loop that blocks when idle:
 
 ```sh
-go run ./examples/demo
-go run ./examples/flex
-go run ./examples/hello
+go run ./examples/apps/demo
+go run ./examples/apps/flex
+go run ./examples/apps/hello
 ```
 
 See [examples/README.md](examples/README.md) for the full list and the keys
@@ -185,7 +186,7 @@ each one responds to.
 ```sh
 go test ./...                          # the full suite, examples included
 python tools/check_doc_snippets.py     # compile the code in the docs
-go run ./examples/hello
+go run ./examples/apps/hello
 ```
 
 `_ref/` holds read-only checkouts of ratatui and kasuari at the versions being

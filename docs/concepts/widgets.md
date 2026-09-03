@@ -14,22 +14,22 @@ has a runnable program in [examples](../../examples).
 
 | Widget | What it is for | Example |
 |---|---|---|
-| `Block` | Borders, titles, padding and an optional shadow around anything | [block](../../examples/block) |
-| `Paragraph` | Styled text with wrapping, scrolling and alignment | [paragraph](../../examples/paragraph) |
-| `Clear` | Blanks an area, so a popup does not show what is under it | [shadow](../../examples/shadow) |
+| `Block` | Borders, titles, padding and an optional shadow around anything | [block](../../examples/widgets/block) |
+| `Paragraph` | Styled text with wrapping, scrolling and alignment | [paragraph](../../examples/widgets/paragraph) |
+| `Clear` | Blanks an area, so a popup does not show what is under it | [shadow](../../examples/widgets/shadow) |
 | `Fill` | Fills an area with one symbol | — |
-| `List` | A scrolling list with a selection | [list](../../examples/list) |
-| `Table` | Columns sized by `Constraint`, with row, column and cell selection | [table](../../examples/table) |
-| `Tabs` | A row of titles with one highlighted | [tabs](../../examples/tabs) |
-| `Scrollbar` | A track and thumb along any edge | [scrollbar](../../examples/scrollbar) |
-| `Gauge`, `LineGauge` | A progress bar, in a block or on a single row | [gauge](../../examples/gauge), [line-gauge](../../examples/line-gauge) |
-| `BarChart` | Bars in either direction, grouped or not | [barchart](../../examples/barchart), [barchart-grouped](../../examples/barchart-grouped) |
-| `Sparkline` | One row of history, no axes | [sparkline](../../examples/sparkline) |
-| `Chart` | Scatter, line, bar and area plots on shared axes | [chart](../../examples/chart) |
-| `Canvas` | A coordinate space drawn with braille or block markers | [canvas](../../examples/canvas) |
-| `Monthly` | A month, with styles per date | [calendar](../../examples/calendar) |
-| `Shadow` | A shadow cast behind a popup | [shadow](../../examples/shadow) |
-| `CatatuiLogo`, `RatatuiMascot` | The logo and the rat | [logo](../../examples/logo) |
+| `List` | A scrolling list with a selection | [list](../../examples/widgets/list) |
+| `Table` | Columns sized by `Constraint`, with row, column and cell selection | [table](../../examples/widgets/table) |
+| `Tabs` | A row of titles with one highlighted | [tabs](../../examples/widgets/tabs) |
+| `Scrollbar` | A track and thumb along any edge | [scrollbar](../../examples/widgets/scrollbar) |
+| `Gauge`, `LineGauge` | A progress bar, in a block or on a single row | [gauge](../../examples/widgets/gauge), [line-gauge](../../examples/widgets/line-gauge) |
+| `BarChart` | Bars in either direction, grouped or not | [barchart](../../examples/widgets/barchart), [barchart-grouped](../../examples/widgets/barchart-grouped) |
+| `Sparkline` | One row of history, no axes | [sparkline](../../examples/widgets/sparkline) |
+| `Chart` | Scatter, line, bar and area plots on shared axes | [chart](../../examples/widgets/chart) |
+| `Canvas` | A coordinate space drawn with braille or block markers | [canvas](../../examples/widgets/canvas) |
+| `Monthly` | A month, with styles per date | [calendar](../../examples/widgets/calendar) |
+| `Shadow` | A shadow cast behind a popup | [shadow](../../examples/widgets/shadow) |
+| `CatatuiLogo`, `RatatuiMascot` | The logo and the rat | [logo](../../examples/widgets/logo) |
 
 `Chart` and `BarChart` cover different jobs despite the names: a bar chart draws
 one bar per labelled category, a chart plots datasets against numeric axes.
@@ -138,7 +138,7 @@ func collapsed(f *catatui.Frame, area catatui.Rect) {
 `symbols.MergeFuzzy` also handles the combinations Unicode is missing by moving
 one of them to a nearby line style. The block drawn last wins, so render the
 focused pane after the others. See the
-[collapsed-borders](../../examples/collapsed-borders) example.
+[collapsed-borders](../../examples/widgets/collapsed-borders) example.
 
 ## Widgets that remember: state
 
