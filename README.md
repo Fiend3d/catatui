@@ -166,9 +166,10 @@ uniseg is MIT; the two `golang.org/x` modules are BSD-3-Clause.
 ## Examples
 
 `examples/` holds one runnable program per widget, ported from ratatui's own
-widget examples, alongside ported applications — the original tui-rs `demo` and
-the `flex` layout explorer — and `hello`, which shows the layout solver, direct
-buffer drawing and an event loop that blocks when idle:
+widget examples, alongside ported applications — the original tui-rs `demo`, the
+`flex` layout explorer, a `popup`, a `todo-list`, a `user-input` box and an
+`inline` viewport writing to the scrollback — and `hello`, which shows the
+layout solver, direct buffer drawing and an event loop that blocks when idle:
 
 ```sh
 go run ./examples/demo

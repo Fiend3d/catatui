@@ -117,10 +117,12 @@ costs nothing. `QueryCursorPosition` is the one that asks.
 
 ## InsertBefore
 
-`Terminal.InsertBefore(height, draw)` draws `height` lines above the viewport
-and scrolls the terminal so they become part of the scrollback, while the
-viewport keeps redrawing below. This is how a program with an inline viewport
-emits log lines that stay on screen.
+`Terminal.InsertBefore(height, draw)` draws `height` lines above the viewport,
+pushing it down the screen or scrolling the screen up to make room, so that the
+lines become part of the scrollback while the viewport keeps redrawing below.
+This is how a program with an inline viewport emits log lines that stay on
+screen. It does nothing for a fullscreen or fixed viewport, which have no
+scrollback to write into.
 
 ```go
 package main
@@ -134,9 +136,14 @@ func logLine(terminal *catatui.Terminal, msg string) error {
 }
 ```
 
-The callback receives a buffer whose `Area` is the strip being inserted, at
-absolute coordinates, so draw at `buf.Area.X` and `buf.Area.Y` rather than at
-zero.
+The callback receives a buffer of `height` rows and the viewport's width,
+starting at the origin whatever row the lines end up on. Draw relative to
+`buf.Area` and the strip lands in the right place either way.
+
+The screen moves underneath the previous frame, so `InsertBefore` clears the
+viewport and the next `Draw` rewrites every cell of it rather than diffing
+against a frame that is no longer where it was drawn. Nothing is asked of the
+caller for this, but it does mean the frame after an insert is a full repaint.
 
 ## RecoverAndRestore
 

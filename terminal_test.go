@@ -323,3 +323,144 @@ func TestTerminalInlineViewportScrollsWhenItDoesNotFit(t *testing.T) {
 		t.Errorf("scrolled %d lines, want %d", got, want)
 	}
 }
+
+// The InsertBefore tests below are ports of ratatui's own, from
+// ratatui-core/src/terminal/inline.rs @ ratatui-v0.30.2, minus the ones for the
+// scrolling-regions feature: catatui's backend has no scroll-region support, so
+// only the fallback path exists here.
+
+func TestTerminalInsertBeforeIsANoOpForNonInlineViewports(t *testing.T) {
+	backend := NewTestBackend(3, 2)
+	terminal, err := NewTerminal(backend)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = terminal.Draw(func(f *Frame) {
+		f.Buffer().SetString(0, 0, "x", NewStyle())
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	area := terminal.ViewportArea()
+	err = terminal.InsertBefore(1, func(buf *Buffer) {
+		buf.SetString(0, 0, "zzz", NewStyle())
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if got := terminal.ViewportArea(); got != area {
+		t.Errorf("viewport area = %+v, want it left alone at %+v", got, area)
+	}
+	AssertBuffer(t, backend.Buffer(), NewBufferWithStrings("x  ", "   "))
+}
+
+func TestTerminalInsertBeforePushesTheViewportDownWhenThereIsRoom(t *testing.T) {
+	backend := backendWithLines(
+		"0000000000", "1111111111", "2222222222", "3333333333", "4444444444",
+		"5555555555", "6666666666", "7777777777", "8888888888", "9999999999")
+	if err := backend.SetCursorPosition(Position{Y: 3}); err != nil {
+		t.Fatal(err)
+	}
+	terminal, err := NewTerminalWithViewport(backend, InlineViewport(4))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = terminal.InsertBefore(1, func(buf *Buffer) {
+		buf.SetString(0, 0, "INSERTLINE", NewStyle())
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// The line goes in at the old top of the viewport, and the viewport moves
+	// down out of its way. Nothing scrolls: there was room below.
+	if got, want := terminal.ViewportArea(), NewRect(0, 4, 10, 4); got != want {
+		t.Errorf("viewport area = %+v, want %+v", got, want)
+	}
+	AssertBuffer(t, backend.Buffer(), NewBufferWithStrings(
+		"0000000000", "1111111111", "2222222222", "INSERTLINE", "          ",
+		"          ", "          ", "          ", "          ", "          "))
+}
+
+func TestTerminalInsertBeforeScrollsWhenTheViewportIsAtTheBottom(t *testing.T) {
+	backend := backendWithLines(
+		"0000000000", "1111111111", "2222222222", "3333333333", "4444444444",
+		"5555555555", "6666666666", "7777777777", "8888888888", "9999999999")
+	if err := backend.SetCursorPosition(Position{Y: 6}); err != nil {
+		t.Fatal(err)
+	}
+	terminal, err := NewTerminalWithViewport(backend, InlineViewport(4))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = terminal.InsertBefore(2, func(buf *Buffer) {
+		buf.SetString(0, 0, "INSERTED1", NewStyle())
+		buf.SetString(0, 1, "INSERTED2", NewStyle())
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// There is no room below, so the screen scrolls up by two and the viewport
+	// stays where it is on screen.
+	if got, want := terminal.ViewportArea(), NewRect(0, 6, 10, 4); got != want {
+		t.Errorf("viewport area = %+v, want %+v", got, want)
+	}
+	AssertBuffer(t, backend.Buffer(), NewBufferWithStrings(
+		"2222222222", "3333333333", "4444444444", "5555555555", "INSERTED1 ",
+		"INSERTED2 ", "          ", "          ", "          ", "          "))
+}
+
+func TestTerminalInsertBeforeThenDrawRepaintsTheWholeViewport(t *testing.T) {
+	backend := NewTestBackend(10, 10)
+	if err := backend.SetCursorPosition(Position{Y: 6}); err != nil {
+		t.Fatal(err)
+	}
+	terminal, err := NewTerminalWithViewport(backend, InlineViewport(4))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	fill := func(s string) func(*Frame) {
+		return func(f *Frame) {
+			area := f.Area()
+			for y := area.Top(); y < area.Bottom(); y++ {
+				f.Buffer().SetString(area.X, y, s, NewStyle())
+			}
+		}
+	}
+
+	if err := terminal.Draw(fill("AAAAAAAAAA")); err != nil {
+		t.Fatal(err)
+	}
+	err = terminal.InsertBefore(2, func(buf *Buffer) {
+		buf.SetString(0, 0, "INSERTED00", NewStyle())
+		buf.SetString(0, 1, "INSERTED01", NewStyle())
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// This is what the diff would get wrong if InsertBefore left the previous
+	// frame in place: every row of the viewport has to be rewritten, not only
+	// the cells that changed between the two frames.
+	if err := terminal.Draw(fill("BBBBBBBBBB")); err != nil {
+		t.Fatal(err)
+	}
+
+	AssertBuffer(t, backend.Buffer(), NewBufferWithStrings(
+		"          ", "          ", "          ", "          ", "INSERTED00",
+		"INSERTED01", "BBBBBBBBBB", "BBBBBBBBBB", "BBBBBBBBBB", "BBBBBBBBBB"))
+}
+
+// backendWithLines is a TestBackend with the given lines already on screen,
+// standing in for ratatui's TestBackend::with_lines.
+func backendWithLines(lines ...string) *TestBackend {
+	want := NewBufferWithStrings(lines...)
+	backend := NewTestBackend(want.Area.Width, want.Area.Height)
+	copy(backend.Buffer().Content, want.Content)
+	return backend
+}

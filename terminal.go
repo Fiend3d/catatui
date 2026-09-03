@@ -322,14 +322,24 @@ func (t *Terminal) setViewportArea(area Rect) {
 }
 
 // clearViewport blanks the previous buffer so that the next diff rewrites every
-// cell, and erases the corresponding region of the screen.
+// cell, and erases the corresponding region of the screen. It leaves the cursor
+// wherever the erasing put it; callers that care put it back.
 func (t *Terminal) clearViewport() error {
 	t.buffers[1-t.current].Reset()
-	if t.viewport.kind == ViewportFullscreen {
+	switch t.viewport.kind {
+	case ViewportFullscreen:
 		return t.backend.ClearRegion(ClearAll)
+	case ViewportInline:
+		// Everything from the viewport's first row down belongs to the
+		// program, so it goes in one call. What is above is scrollback, and is
+		// left alone.
+		if err := t.backend.SetCursorPosition(t.viewportArea.AsPosition()); err != nil {
+			return err
+		}
+		return t.backend.ClearRegion(ClearAfterCursor)
 	}
-	// An inline or fixed viewport must not erase the scrollback above it, so
-	// each of its rows is blanked individually.
+	// A fixed viewport shares the screen with whatever else is drawn on it, so
+	// only its own rows are blanked.
 	blank := make([]PositionedCell, 0, t.viewportArea.Area())
 	for y := t.viewportArea.Top(); y < t.viewportArea.Bottom(); y++ {
 		for x := t.viewportArea.Left(); x < t.viewportArea.Right(); x++ {
@@ -341,7 +351,14 @@ func (t *Terminal) clearViewport() error {
 
 // Clear erases the viewport and forces the next frame to redraw every cell.
 func (t *Terminal) Clear() error {
+	original, err := t.backend.GetCursorPosition()
+	if err != nil {
+		return err
+	}
 	if err := t.clearViewport(); err != nil {
+		return err
+	}
+	if err := t.backend.SetCursorPosition(original); err != nil {
 		return err
 	}
 	return t.backend.Flush()
@@ -384,28 +401,110 @@ func (t *Terminal) SetCursorPosition(p Position) error {
 	return nil
 }
 
-// InsertBefore draws height lines above the viewport, scrolling the terminal so
-// they become part of the scrollback.
+// InsertBefore draws height lines above the viewport, pushing it down the
+// screen or scrolling the screen up to make room, so that the lines become part
+// of the scrollback.
 //
 // This is how a program with an inline viewport emits log lines that stay on
-// screen while the viewport keeps redrawing beneath them.
+// screen while the viewport keeps redrawing beneath them. It does nothing at
+// all for a fullscreen or fixed viewport, which have no scrollback to write to.
+//
+// The buffer handed to draw starts at the origin and is height rows of the
+// viewport's width, whatever row the lines end up on.
+//
+// The viewport is cleared afterwards, and the whole of it is rewritten by the
+// next Draw: the screen has moved underneath the previous frame, so a diff
+// against it would leave the parts that did not change where they used to be.
 func (t *Terminal) InsertBefore(height uint16, draw func(*Buffer)) error {
-	if err := t.backend.AppendLines(height); err != nil {
-		return err
+	if t.viewport.kind != ViewportInline || t.lastKnownAre.Height == 0 {
+		return nil
 	}
-	area := Rect{X: t.viewportArea.X, Y: SatSub(t.viewportArea.Y, height),
-		Width: t.viewportArea.Width, Height: height}
-	buf := NewBuffer(area)
-	draw(buf)
 
-	cells := make([]PositionedCell, 0, len(buf.Content))
-	for y := area.Top(); y < area.Bottom(); y++ {
-		for x := area.Left(); x < area.Right(); x++ {
-			cells = append(cells, PositionedCell{X: x, Y: y, Cell: *buf.Get(x, y)})
+	width := t.viewportArea.Width
+	buf := NewBuffer(Rect{Width: width, Height: height})
+	draw(buf)
+	cells := buf.Content
+
+	// int rather than uint16 throughout, so that neither the additions below
+	// overflow nor the subtractions run past zero.
+	drawnHeight := int(t.viewportArea.Top())
+	bufferHeight := int(height)
+	viewportHeight := int(t.viewportArea.Height)
+	screenHeight := int(t.lastKnownAre.Height)
+
+	// Draw as much as will fit, a screenful at a time, until what is left of
+	// the buffer and the viewport together fit on the screen. Scrolling by the
+	// smallest amount that makes room keeps the viewport off the middle of the
+	// screen once this is done.
+	for bufferHeight+viewportHeight > screenHeight {
+		toDraw := min(bufferHeight, screenHeight)
+		scrollUp := max(0, drawnHeight+toDraw-screenHeight)
+		if err := t.scrollUp(uint16(scrollUp)); err != nil {
+			return err
 		}
+		var err error
+		cells, err = t.drawLines(uint16(drawnHeight-scrollUp), uint16(toDraw), width, cells)
+		if err != nil {
+			return err
+		}
+		drawnHeight += toDraw - scrollUp
+		bufferHeight -= toDraw
 	}
-	if err := t.backend.Draw(cells); err != nil {
+
+	// What is left now fits, though the existing text may still have to scroll
+	// up to leave the screen exactly full. The viewport may not have started at
+	// the bottom, so the amount can come out negative; scrolling by that would
+	// push the lines the wrong way.
+	scrollUp := max(0, drawnHeight+bufferHeight+viewportHeight-screenHeight)
+	if err := t.scrollUp(uint16(scrollUp)); err != nil {
 		return err
 	}
-	return t.backend.Flush()
+	if _, err := t.drawLines(uint16(drawnHeight-scrollUp), uint16(bufferHeight), width, cells); err != nil {
+		return err
+	}
+	drawnHeight += bufferHeight - scrollUp
+
+	area := t.viewportArea
+	area.Y = uint16(drawnHeight)
+	t.setViewportArea(area)
+
+	// Clearing last rather than first is deliberate: the lines drawn above are
+	// a full rectangle and overwrite whatever they land on, and on tmux a
+	// full clear followed immediately by a scroll puts rubbish in the
+	// scrollback.
+	return t.Clear()
+}
+
+// scrollUp pushes the screen up by n lines, by putting the cursor on the last
+// row and appending there.
+func (t *Terminal) scrollUp(n uint16) error {
+	if n == 0 {
+		return nil
+	}
+	if err := t.SetCursorPosition(Position{Y: SatSub(t.lastKnownAre.Height, 1)}); err != nil {
+		return err
+	}
+	return t.backend.AppendLines(n)
+}
+
+// drawLines writes rows of cells straight to the backend at an absolute screen
+// row, bypassing the frame diff, and returns the cells it did not use.
+func (t *Terminal) drawLines(y, rows, width uint16, cells []Cell) ([]Cell, error) {
+	n := int(width) * int(rows)
+	toDraw, remainder := cells[:n], cells[n:]
+	if rows == 0 {
+		return remainder, nil
+	}
+	positioned := make([]PositionedCell, 0, n)
+	for i, c := range toDraw {
+		positioned = append(positioned, PositionedCell{
+			X:    uint16(i % int(width)),
+			Y:    y + uint16(i/int(width)),
+			Cell: c,
+		})
+	}
+	if err := t.backend.Draw(positioned); err != nil {
+		return nil, err
+	}
+	return remainder, t.backend.Flush()
 }

@@ -24,6 +24,10 @@ Whole programs, ported from ratatui's [examples/apps]:
 | [demo](demo) | The original tui-rs demo: three tabs of gauges, lists, charts, a table and a world map, animating on a tick | arrows or `h`/`j`/`k`/`l`, `t`, `q` |
 | [flex](flex) | What each `Flex` mode does to the same constraints, side by side | arrows, `g`/`G`, `-`/`+`, `q` |
 | [hello](hello) | Layout, direct buffer drawing, and an event loop that blocks when idle | arrows, mouse, `q` |
+| [inline](inline) | An inline viewport, and `InsertBefore` pushing finished lines into the scrollback | `q` |
+| [popup](popup) | A popup drawn over the rest of the UI, with `Clear` behind it | `p`, `q` |
+| [todo-list](todo-list) | A list whose items are selected and ticked off, with the selection kept in a `ListState` | arrows or `h`/`j`/`k`/`l`, `g`/`G`, Enter, `q` |
+| [user-input](user-input) | Typing into an input box: editing modes, and where the cursor goes | `e`, Esc, Enter, arrows, `q` |
 
 ## Widgets
 

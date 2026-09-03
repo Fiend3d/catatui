@@ -170,12 +170,15 @@ func (b *TestBackend) ClearRegion(t ClearType) error {
 	case ClearAll:
 		region = area
 	case ClearAfterCursor:
-		i := b.buffer.IndexOf(b.cursor.X, b.cursor.Y) + 1
+		// Both of these take the cell under the cursor with them, which is what
+		// the escapes the real backend writes do: ED 0 erases from the cursor
+		// onwards and ED 1 up to and including it.
+		i := b.buffer.IndexOf(b.cursor.X, b.cursor.Y)
 		b.clearFrom(i, len(b.buffer.Content))
 		return nil
 	case ClearBeforeCursor:
 		i := b.buffer.IndexOf(b.cursor.X, b.cursor.Y)
-		b.clearFrom(0, i)
+		b.clearFrom(0, i+1)
 		return nil
 	case ClearCurrentLine:
 		region = NewRect(area.X, b.cursor.Y, area.Width, 1)
