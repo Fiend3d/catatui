@@ -1,5 +1,9 @@
 # Examples
 
+**Your first app:** [Purrfect Day](apps/getting-started), a colorful cat-care
+checklist with a happiness meter. Follow the [getting-started tutorial](../docs/getting-started.md)
+to build it yourself, or run `go run ./examples/apps/getting-started`.
+
 Each directory is a self-contained program: whole applications under
 [apps](apps), one program per widget under [widgets](widgets). Run one with:
 
@@ -20,10 +24,11 @@ the reason the same twenty lines of scaffolding appear in every one of them.
 
 ## Applications
 
-Whole programs, ported from ratatui's [examples/apps]:
+Whole programs, including ports from ratatui's [examples/apps]:
 
 | Example | Shows | Keys |
 |---|---|---|
+| [getting-started](apps/getting-started) | Purrfect Day: beginner-friendly layout, styled checklist, cat companion, and happiness gauge | Up/Down or `j`/`k`, Space/Enter toggle, `r` reset, `q`/Esc/Ctrl+C quit |
 | [advanced-widget-impl](apps/advanced-widget-impl) | The shapes a widget takes: built for one frame, over longer-lived state, a container of other widgets, and one that records where it drew | any key quits |
 | [async-github](apps/async-github) | Fetching in the background: a goroutine filling a table in while the UI keeps drawing | `j`/`k`, arrows, `q` |
 | [calendar-explorer](apps/calendar-explorer) | A year of `Monthly` calendars with the holidays marked, in each of the widget's styles | `s`, `n`/`p`, arrows or `h`/`j`/`k`/`l`, `q` |

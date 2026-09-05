@@ -1,5 +1,9 @@
 # Documentation
 
+**Start here: [Getting started — build a happy little cat dashboard](getting-started.md).**
+Know a little Go? In five friendly steps, turn a greeting into a colorful,
+keyboard-controlled app with a checklist, a happiness meter, and a tiny cat.
+
 The API reference is on [pkg.go.dev]. These guides are the prose around it: what
 the pieces are for, which rules matter, and where catatui deliberately differs
 from ratatui. Each page says at the top what it covers and who it is for, and
@@ -15,9 +19,9 @@ ends with the differences from ratatui in that area.
 | [Terminal](concepts/terminal.md) | `term.Init` and its options, raw mode, viewports, `InsertBefore`, panic recovery |
 | [Testing](concepts/testing.md) | Rendering into a buffer, `AssertBuffer`, driving an app through `TestBackend` |
 
-New to the library? Read [rendering](concepts/rendering.md) and
-[layout](concepts/layout.md), in that order, then pick the page for whatever you
-are building. The [examples](../examples) are a runnable program per widget.
+New to the library? Begin with [getting started](getting-started.md), then read
+[rendering](concepts/rendering.md) and [layout](concepts/layout.md) for a closer
+look. The [examples](../examples) include a runnable program per widget.
 
 Every whole-file Go snippet on these pages is compiled by
 `tools/check_doc_snippets.py`, so nothing here can drift from the API without

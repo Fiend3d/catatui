@@ -32,6 +32,11 @@ terminal.Draw(func(f *catatui.Frame) {
 
 Run `go run ./examples/apps/hello` for a working application.
 
+**New here? [Start with a happy little cat](docs/getting-started.md).**
+Build Purrfect Day, a colorful cat-care dashboard, in five friendly steps:
+draw your first screen, style it, add a checklist, handle keys, and earn a smile.
+Try the finished app with `go run ./examples/apps/getting-started`.
+
 ## Unicode text and terminal widths
 
 `SegmentGraphemes` exposes the same segmentation and measurement used by
@@ -165,6 +170,7 @@ in depth, and are meant to be read rather than searched:
 
 | Guide | Covers |
 |---|---|
+| [Getting started](docs/getting-started.md) | Build Purrfect Day: a beginner tutorial with a complete runnable cat-care dashboard |
 | [Rendering](docs/concepts/rendering.md) | The immediate-mode cycle, `Frame`, `Buffer`, `Cell`, wide graphemes, the diff, writing a widget |
 | [Layout](docs/concepts/layout.md) | `Rect`, the six constraints, seven flex modes, spacing, nesting, recipes |
 | [Widgets](docs/concepts/widgets.md) | The catalogue, builder conventions, blocks and inner areas, widget state |

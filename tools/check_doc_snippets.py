@@ -3,12 +3,12 @@
 
 Documentation that does not compile is worse than none, and these pages are
 mostly code. This extracts each ```go block from the README, the guides under
-docs/concepts and the examples README, writes it into a throwaway module that
+docs and the examples README, writes it into a throwaway module that
 depends on this checkout, and builds it.
 
 Blocks that are fragments rather than whole files - anything not starting with
-`package` - are counted and skipped, so the summary says how much of the
-documentation is actually verified.
+`package` after optional leading comments - are counted and skipped, so the
+summary says how much of the documentation is actually verified.
 
     python tools/check_doc_snippets.py            # every documented page
     python tools/check_doc_snippets.py README.md  # just one
@@ -26,6 +26,7 @@ REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DEFAULT_PAGES = [
     "README.md",
     "examples/README.md",
+    "docs/getting-started.md",
     "docs/concepts/events.md",
     "docs/concepts/layout.md",
     "docs/concepts/rendering.md",
@@ -36,6 +37,7 @@ DEFAULT_PAGES = [
 ]
 
 BLOCK = re.compile(r"^```go\n(.*?)^```", re.MULTILINE | re.DOTALL)
+PACKAGE = re.compile(r"\s*(?:(?://[^\n]*\n|/\*.*?\*/)\s*)*package\s", re.DOTALL)
 
 GO_MOD = """module docsnippets
 
@@ -66,7 +68,7 @@ def snippets(page):
     for match in BLOCK.finditer(text):
         code = match.group(1)
         line = text[: match.start()].count("\n") + 1
-        yield line, code, code.lstrip().startswith("package ")
+        yield line, code, PACKAGE.match(code) is not None
 
 
 # seed imports every package a snippet might use, so that one `go mod tidy`
