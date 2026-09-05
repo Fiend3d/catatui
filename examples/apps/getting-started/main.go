@@ -155,7 +155,8 @@ func (a *app) renderCat(f *catatui.Frame, area catatui.Rect) {
 	if a.completed() == len(a.tasks) {
 		face, message = "( ^.^ )", "One happy cat. Nicely done!"
 	}
-	cat := ` /\_/\` + "\n" + face + "\n > ^ <\n" + message
+	// Keep all three cat rows seven columns wide so they center together.
+	cat := ` /\_/\ ` + "\n" + face + "\n > ^ < \n" + message
 	f.RenderWidget(widgets.NewParagraph(cat).Centered().
 		Block(panel("YOUR TINY COMPANION", pinkStyle)).Style(pinkStyle), area)
 }

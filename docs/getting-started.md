@@ -347,7 +347,8 @@ func (a *app) renderCat(f *catatui.Frame, area catatui.Rect) {
 	if a.completed() == len(a.tasks) {
 		face, message = "( ^.^ )", "One happy cat. Nicely done!"
 	}
-	cat := ` /\_/\` + "\n" + face + "\n > ^ <\n" + message
+	// Keep all three cat rows seven columns wide so they center together.
+	cat := ` /\_/\ ` + "\n" + face + "\n > ^ < \n" + message
 	f.RenderWidget(widgets.NewParagraph(cat).Centered().
 		Block(panel("YOUR TINY COMPANION", pinkStyle)).Style(pinkStyle), area)
 }
@@ -371,6 +372,10 @@ Run `go run .` and tick all three tasks. **One happy cat. Nicely done!**
 The gauge takes a ratio from 0 to 1. We calculate it from the number of completed
 tasks, so the meter, checkboxes, and cat always agree. The label also shows the
 count in words. Undoing a task lowers the meter and brings the original face back.
+
+Each line of the cat is seven characters wide, including its spaces. Keep those
+spaces: `Centered()` centers each line separately, so matching widths keep the
+ears, face, and whiskers lined up as you resize the terminal.
 
 **Try it:** give the celebration message your own personality. Keep it short
 enough to fit the card at the smallest side-by-side width.
@@ -543,7 +548,8 @@ func (a *app) renderCat(f *catatui.Frame, area catatui.Rect) {
 	if a.completed() == len(a.tasks) {
 		face, message = "( ^.^ )", "One happy cat. Nicely done!"
 	}
-	cat := ` /\_/\` + "\n" + face + "\n > ^ <\n" + message
+	// Keep all three cat rows seven columns wide so they center together.
+	cat := ` /\_/\ ` + "\n" + face + "\n > ^ < \n" + message
 	f.RenderWidget(widgets.NewParagraph(cat).Centered().
 		Block(panel("YOUR TINY COMPANION", pinkStyle)).Style(pinkStyle), area)
 }

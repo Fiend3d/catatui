@@ -127,6 +127,53 @@ func TestRenderAndResize(t *testing.T) {
 	}
 }
 
+// Every row of the drawing must move together when centering rounds at odd
+// widths, including when the layout switches between stacked and side by side.
+func TestCatStaysAlignedDuringResize(t *testing.T) {
+	backend := catatui.NewTestBackend(80, 24)
+	terminal, err := catatui.NewTerminal(backend)
+	if err != nil {
+		t.Fatal(err)
+	}
+	a := newApp()
+	for completed := 0; completed <= len(a.tasks); completed++ {
+		for i := range a.tasks {
+			a.tasks[i].done = i < completed
+		}
+		face := "( o.o )"
+		if completed == len(a.tasks) {
+			face = "( ^.^ )"
+		}
+		for width := uint16(40); width <= 160; width++ {
+			for _, height := range []uint16{18, 24} {
+				backend.Resize(width, height)
+				if err := terminal.Draw(a.draw); err != nil {
+					t.Fatal(err)
+				}
+				rows := strings.Split(backend.Buffer().String(), "\n")
+				found := false
+				for y, row := range rows {
+					before, _, ok := strings.Cut(row, face)
+					if !ok {
+						continue
+					}
+					found = true
+					x := len([]rune(before))
+					for dy, want := range map[int]string{-1: ` /\_/\ `, 1: " > ^ < "} {
+						got := string([]rune(rows[y+dy])[x : x+7])
+						if got != want {
+							t.Fatalf("%d done, %dx%d, cat row %+d: got %q, want %q\n%s", completed, width, height, dy, got, want, backend.Buffer())
+						}
+					}
+				}
+				if !found {
+					t.Fatalf("%d done, %dx%d: missing cat face", completed, width, height)
+				}
+			}
+		}
+	}
+}
+
 func TestTutorialFinalProgramMatchesExample(t *testing.T) {
 	guide, err := os.ReadFile("../../../docs/getting-started.md")
 	if err != nil {
