@@ -32,6 +32,28 @@ terminal.Draw(func(f *catatui.Frame) {
 
 Run `go run ./examples/apps/hello` for a working application.
 
+## Unicode text and terminal widths
+
+`SegmentGraphemes` exposes the same segmentation and measurement used by
+`Buffer.SetStringn`, cells, spans and widgets. It preserves source bytes,
+including tabs and zero-width clusters, for editors and viewers that maintain
+byte offsets. `AllGraphemes` yields only drawable units. Indic GB9c conjuncts
+and tailored Tamil ksha/sri ligatures stay intact through buffer diffing and
+terminal output.
+
+`DefaultWidthPolicy` selects the terminal advance: `WindowsTerminalWidth` on
+Windows and `UnicodeWidth` elsewhere. Set it once during application startup
+if the target terminal uses another policy; never change it while buffers or
+concurrent readers are in use. The explicit policy methods allow measurement
+without changing the default, for example `catatui.WindowsTerminalWidth.StringWidth(text)`.
+
+The Windows policy counts spacing marks (including Bengali AA) and caps each
+Unicode cluster at two cells after Indic joining, following Windows Terminal's
+[grapheme measurement](https://github.com/microsoft/terminal/blob/main/src/types/CodepointWidthDetector.cpp).
+Tamil selection units can span multiple terminal clusters and retain their
+combined width. Applications do not need forced-width cells or custom drawing
+code for these scripts.
+
 ## Why
 
 Go's existing TUI libraries take a different shape: Bubble Tea is the Elm
@@ -217,4 +239,3 @@ notices to travel with the code.
 
 [ratatui]: https://github.com/ratatui/ratatui
 [kasuari]: https://github.com/ratatui/kasuari
-

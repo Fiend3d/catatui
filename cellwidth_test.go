@@ -49,6 +49,9 @@ func TestCellWidth(t *testing.T) {
 		{"fullwidth katakana", "カ", 2},
 	}
 	for _, c := range cases {
+		if DefaultWidthPolicy == WindowsTerminalWidth {
+			c.want = min(c.want, 2)
+		}
 		if got := cellWidth(c.in); got != c.want {
 			t.Errorf("%s: cellWidth(%q) = %d, want %d", c.name, c.in, got, c.want)
 		}
@@ -272,6 +275,9 @@ func TestClusterWidthIsTheTerminalsAdvance(t *testing.T) {
 		{"ﾊﾞ", 2}, // halfwidth katakana plus a sound mark, drawn in two columns
 		{"e", 1},
 	} {
+		if c.text == "हिन्दी" && DefaultWidthPolicy == WindowsTerminalWidth {
+			c.want = 4 // हि(2) + न्दी(2), after GB9c joining
+		}
 		if got := StringWidth(c.text); got != c.want {
 			t.Errorf("StringWidth(%q) = %d, want %d", c.text, got, c.want)
 		}

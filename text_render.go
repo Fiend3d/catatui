@@ -110,7 +110,7 @@ func TrimLeftColumns(s string, n int) string {
 	if n <= 0 {
 		return s
 	}
-	for g := range AllGraphemes(s) {
+	for g := range SegmentGraphemes(s) {
 		if n <= 0 {
 			break
 		}
